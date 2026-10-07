@@ -21,11 +21,11 @@ Lệnh `d1 create` in ra một `database_id`. Chép giá trị đó vào `wrangl
 
 ```bash
 npm run db:remote                                   # tạo bảng users, sessions trên D1
-npx wrangler pages project create duc-thang --production-branch main
+npx wrangler pages project create img-text --production-branch main
 npm run deploy                                      # đưa trang web lên Cloudflare
 ```
 
-Trang web sẽ có địa chỉ `https://duc-thang.pages.dev`. Nếu tên này đã có người dùng, Cloudflare sẽ báo, khi đó bạn đổi `name` trong `wrangler.toml`. Muốn dùng tên miền riêng thì vào Cloudflare Dashboard → Workers & Pages → duc-thang → Custom domains.
+Trang web sẽ có địa chỉ `https://img-text.pages.dev`. Nếu tên này đã có người dùng, Cloudflare sẽ báo, khi đó bạn đổi `name` trong `wrangler.toml`. Muốn dùng tên miền riêng thì vào Cloudflare Dashboard → Workers & Pages → img-text → Custom domains.
 
 **Cập nhật sau khi sửa code:** chỉ cần `npm run deploy`.
 
