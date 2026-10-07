@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng nhập – Đức Thắng</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E📄%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <form class="auth-card" id="authForm">
+      <div class="logo">📄 Đức Thắng</div>
+      <h1 id="title">Đăng nhập</h1>
+      <p class="sub" id="subtitle">Chuyển chữ trong ảnh thành file Word</p>
+
+      <div class="field">
+        <label for="username">Tên đăng nhập</label>
+        <input id="username" name="username" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">Mật khẩu</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <div class="field" id="confirmField" hidden>
+        <label for="confirm">Nhập lại mật khẩu</label>
+        <input id="confirm" type="password" autocomplete="new-password" />
+      </div>
+
+      <div class="msg" id="msg"></div>
+      <button class="btn" type="submit" id="submitBtn">Đăng nhập</button>
+
+      <div class="switch">
+        <span id="switchText">Chưa có tài khoản?</span>
+        <a id="switchLink">Đăng ký</a>
+      </div>
+    </form>
+  </div>
+  <script src="/auth.js"></script>
+</body>
+</html>

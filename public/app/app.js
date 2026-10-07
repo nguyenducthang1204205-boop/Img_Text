@@ -1,0 +1,307 @@
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const list = document.getElementById('list');
+const ocrBtn = document.getElementById('ocrBtn');
+const exportBtn = document.getElementById('exportBtn');
+const clearBtn = document.getElementById('clearBtn');
+const statusEl = document.getElementById('status');
+const progress = document.getElementById('progress');
+const progressBar = progress.firstElementChild;
+const qPanel = document.getElementById('qPanel');
+const optNumber = document.getElementById('optNumber');
+const optFormat = document.getElementById('optFormat');
+const optDedupe = document.getElementById('optDedupe');
+const optThreshold = document.getElementById('optThreshold');
+
+// Mỗi phần tử: { id, file, url, text, state: 'pending' | 'working' | 'done' | 'error', el }
+let items = [];
+let busy = false;
+let nextId = 1;
+
+const STATE_LABEL = { pending: 'Chờ xử lý', working: 'Đang đọc…', done: 'Hoàn tất', error: 'Lỗi' };
+
+// ---------- Người dùng ----------
+let username = '';
+fetch('/api/me')
+  .then((r) => (r.ok ? r.json() : Promise.reject()))
+  .then((u) => {
+    username = u.username;
+    document.getElementById('who').textContent = 'Xin chào, ' + u.username;
+  })
+  .catch(() => (window.location.href = '/login'));
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
+// Tải sẵn bộ nhận dạng chữ ở nền để lúc bấm "Trích xuất chữ" chạy nhanh hơn
+OCR.preload().catch((err) => console.warn('Chưa tải được bộ nhận dạng chữ:', err));
+
+// ---------- Chọn / kéo thả ảnh ----------
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  addFiles(fileInput.files);
+  fileInput.value = '';
+});
+['dragenter', 'dragover'].forEach((ev) =>
+  dropzone.addEventListener(ev, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag');
+  })
+);
+['dragleave', 'drop'].forEach((ev) =>
+  dropzone.addEventListener(ev, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+  })
+);
+dropzone.addEventListener('drop', (e) => addFiles(e.dataTransfer.files));
+
+// Dán ảnh trực tiếp bằng Ctrl+V
+document.addEventListener('paste', (e) => {
+  const files = [...e.clipboardData.items].filter((i) => i.kind === 'file').map((i) => i.getAsFile());
+  if (files.length) addFiles(files);
+});
+
+function addFiles(fileList) {
+  const images = [...fileList].filter((f) => f.type.startsWith('image/'));
+  if (images.length < fileList.length) setStatus('Đã bỏ qua các file không phải ảnh.');
+  images.forEach((file) => {
+    const item = { id: nextId++, file, url: URL.createObjectURL(file), text: '', state: 'pending' };
+    item.el = renderItem(item);
+    list.appendChild(item.el);
+    items.push(item);
+  });
+  updateButtons();
+}
+
+function renderItem(item) {
+  const el = document.createElement('div');
+  el.className = 'item';
+  el.innerHTML = `
+    <img alt="" />
+    <div>
+      <div class="meta">
+        <span class="name"></span>
+        <span>
+          <span class="badge"></span>
+          <button class="remove" title="Xoá ảnh">✕ Xoá</button>
+        </span>
+      </div>
+      <textarea placeholder="Chữ trích xuất từ ảnh sẽ hiện ở đây. Bạn có thể chỉnh sửa trước khi tải file."></textarea>
+    </div>`;
+  el.querySelector('img').src = item.url;
+  el.querySelector('.name').textContent = item.file.name;
+  el.querySelector('textarea').addEventListener('input', (e) => {
+    item.text = e.target.value;
+    schedulePreview();
+  });
+  el.querySelector('.remove').addEventListener('click', () => removeItem(item));
+  updateBadge(item, el);
+  return el;
+}
+
+function updateBadge(item, el = item.el) {
+  const badge = el.querySelector('.badge');
+  badge.className = 'badge ' + item.state;
+  badge.textContent = STATE_LABEL[item.state];
+}
+
+function removeItem(item) {
+  if (busy) return;
+  URL.revokeObjectURL(item.url);
+  item.el.remove();
+  items = items.filter((i) => i !== item);
+  updateButtons();
+  renderPreview();
+}
+
+clearBtn.addEventListener('click', () => {
+  if (busy) return;
+  items.forEach((i) => URL.revokeObjectURL(i.url));
+  items = [];
+  list.innerHTML = '';
+  setStatus('');
+  updateButtons();
+  renderPreview();
+});
+
+function updateButtons() {
+  const hasPending = items.some((i) => i.state === 'pending' || i.state === 'error');
+  const hasDone = items.some((i) => i.state === 'done');
+  ocrBtn.disabled = busy || !hasPending;
+  exportBtn.disabled = busy || !hasDone;
+  clearBtn.disabled = busy || items.length === 0;
+}
+
+function setStatus(text) {
+  statusEl.textContent = text;
+}
+
+// ---------- Đánh số & lọc câu hỏi trùng ----------
+function computeResult() {
+  const source = items
+    .map((it, i) => ({ name: it.file.name, index: i + 1, text: it.text, state: it.state }))
+    .filter((it) => it.state === 'done');
+  return Questions.processItems(source, {
+    number: optNumber.checked,
+    format: optFormat.value,
+    dedupe: optDedupe.checked,
+    threshold: Number(optThreshold.value) / 100,
+  });
+}
+
+let previewTimer = null;
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(renderPreview, 250);
+}
+
+function renderPreview() {
+  const hasDone = items.some((i) => i.state === 'done');
+  qPanel.hidden = !hasDone;
+  if (!hasDone) return;
+
+  optFormat.disabled = !optNumber.checked;
+  optThreshold.disabled = !optDedupe.checked;
+  document.getElementById('thresholdVal').textContent = optThreshold.value + '%';
+
+  const result = computeResult();
+
+  const stats = [];
+  if (result.total !== null) stats.push(`<b>${result.total}</b> câu hỏi`);
+  if (optDedupe.checked) stats.push(`đã loại <b>${result.removed.length}</b> câu trùng`);
+  document.getElementById('qStats').innerHTML = stats.join(' · ');
+
+  const dupBox = document.getElementById('dupBox');
+  const dupList = document.getElementById('dupList');
+  dupBox.hidden = result.removed.length === 0;
+  dupList.innerHTML = '';
+  document.getElementById('dupSummary').textContent = `Xem ${result.removed.length} câu bị loại vì trùng`;
+  result.removed.forEach((r) => {
+    const li = document.createElement('li');
+    const head = document.createElement('div');
+    head.className = 'dup-head';
+    head.textContent = `Ảnh ${r.index} (${r.name}) – trùng với câu ${r.duplicateOf}, giống ${Math.round(r.score * 100)}%`;
+    const body = document.createElement('pre');
+    body.textContent = r.text;
+    li.append(head, body);
+    dupList.appendChild(li);
+  });
+
+  const preview = document.getElementById('preview');
+  preview.innerHTML = '';
+  const text = finalText(result);
+  if (text) {
+    const pre = document.createElement('pre');
+    pre.textContent = text;
+    preview.appendChild(pre);
+  } else {
+    preview.textContent = 'Chưa có nội dung.';
+  }
+}
+
+// Nội dung file Word: chỉ các câu hỏi, nối liền nhau, mỗi câu cách nhau 1 dòng trống
+function finalText(result) {
+  const parts = result.questions || result.blocks.map((b) => b.text);
+  return parts
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+[optNumber, optFormat, optDedupe, optThreshold].forEach((el) =>
+  el.addEventListener('input', renderPreview)
+);
+
+// ---------- OCR: nhận dạng lần lượt từng ảnh ngay trên trình duyệt ----------
+ocrBtn.addEventListener('click', async () => {
+  const queue = items.filter((i) => i.state === 'pending' || i.state === 'error');
+  if (!queue.length) return;
+  busy = true;
+  updateButtons();
+  progress.classList.add('show');
+
+  let done = 0;
+  for (const item of queue) {
+    const label = `Đang trích xuất ảnh ${done + 1}/${queue.length}: ${item.file.name}`;
+    setStatus(label);
+    OCR.setProgressListener((msg) => setStatus(`${label} – ${msg}`));
+    item.state = 'working';
+    updateBadge(item);
+    try {
+      const text = await OCR.recognize(item.file);
+      item.text = text;
+      item.el.querySelector('textarea').value = text;
+      item.state = 'done';
+    } catch (err) {
+      console.error(err);
+      item.state = 'error';
+      item.el.querySelector('textarea').placeholder =
+        'Lỗi: không đọc được ảnh này' + (err && err.message ? ` (${err.message})` : '');
+    }
+    updateBadge(item);
+    done++;
+    progressBar.style.width = `${(done / queue.length) * 100}%`;
+  }
+
+  const errors = queue.filter((i) => i.state === 'error').length;
+  setStatus(
+    errors
+      ? `Hoàn tất với ${errors} ảnh bị lỗi. Bấm "Trích xuất chữ" để thử lại các ảnh lỗi.`
+      : `Đã trích xuất xong ${queue.length} ảnh. Kiểm tra lại nội dung rồi bấm "Tải file Word".`
+  );
+  busy = false;
+  renderPreview();
+  setTimeout(() => {
+    progress.classList.remove('show');
+    progressBar.style.width = '0';
+  }, 800);
+  updateButtons();
+});
+
+// ---------- Xuất file Word (tạo ngay trên trình duyệt) ----------
+function buildDocx(text, boldNumbers) {
+  const { Document, Packer, Paragraph, TextRun } = docx;
+  const run = (t, bold = false) => new TextRun({ text: t, bold, font: 'Times New Roman', size: 26 });
+  // Các câu hỏi viết liền nhau, mỗi câu cách nhau đúng 1 dòng trống
+  const clean = text.replace(/\r\n?/g, '\n').replace(/\n(?:[ \t]*\n)+/g, '\n\n').trim();
+  const children = clean.split('\n').map((line) => {
+    // In đậm phần số câu ("Câu 1:", "Question 2:", "3.") khi bật đánh số tự động
+    const m = boldNumbers && /^((?:Câu|Question)\s+\d+[:.]|\d+\.)(\s.*|)$/.exec(line);
+    return new Paragraph({ children: m ? [run(m[1], true), run(m[2])] : [run(line)] });
+  });
+  const doc = new Document({
+    creator: username || 'Đức Thắng',
+    title: 'Đức Thắng – Văn bản trích xuất từ ảnh',
+    sections: [{ children }],
+  });
+  return Packer.toBlob(doc);
+}
+
+exportBtn.addEventListener('click', async () => {
+  const result = computeResult();
+  const text = finalText(result);
+  if (!text) return setStatus('Không có nội dung để xuất.');
+  busy = true;
+  updateButtons();
+  setStatus('Đang tạo file Word…');
+  try {
+    const blob = await buildDocx(text, optNumber.checked);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `van-ban-tu-anh-${stamp}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    setStatus(result.total !== null ? `Đã tải file Word gồm ${result.total} câu hỏi.` : 'Đã tải file Word.');
+  } catch (err) {
+    setStatus('Lỗi khi tạo file: ' + err.message);
+  } finally {
+    busy = false;
+    updateButtons();
+  }
+});

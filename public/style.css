@@ -1,0 +1,197 @@
+:root {
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --text: #1f2430;
+  --muted: #6b7280;
+  --border: #e3e7ef;
+  --primary: #2f6fed;
+  --primary-hover: #1f5ad1;
+  --danger: #d93a3a;
+  --success: #1e9e5a;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+button, input, textarea { font: inherit; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn:hover:not(:disabled) { background: var(--primary-hover); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-secondary { background: #fff; color: var(--text); border-color: var(--border); }
+.btn-secondary:hover:not(:disabled) { background: #f0f2f7; }
+.btn-success { background: var(--success); }
+.btn-success:hover:not(:disabled) { background: #178049; }
+
+/* ---------- Auth ---------- */
+.auth-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(20, 30, 60, .08);
+  padding: 32px 28px;
+}
+.auth-card h1 { margin: 0 0 4px; font-size: 24px; }
+.auth-card p.sub { margin: 0 0 24px; color: var(--muted); }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+.field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47, 111, 237, .15); }
+.auth-card .btn { width: 100%; }
+.switch { margin-top: 16px; text-align: center; font-size: 14px; color: var(--muted); }
+.switch a { color: var(--primary); cursor: pointer; font-weight: 600; text-decoration: none; }
+.msg { min-height: 20px; font-size: 14px; margin-bottom: 8px; color: var(--danger); }
+
+/* ---------- App ---------- */
+header.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+header.topbar .brand { font-weight: 700; font-size: 18px; }
+header.topbar .user { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+
+main.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
+
+.dropzone {
+  border: 2px dashed #b9c3d8;
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.dropzone.drag { border-color: var(--primary); background: #eef3ff; }
+.dropzone .icon { font-size: 40px; }
+.dropzone strong { display: block; font-size: 17px; margin: 8px 0 4px; }
+.dropzone span { color: var(--muted); font-size: 14px; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+.toolbar .spacer { flex: 1; }
+.toolbar label.check { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+
+.progress { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; display: none; }
+.progress.show { display: block; }
+.progress > div { height: 100%; width: 0; background: var(--primary); transition: width .3s; }
+.status { font-size: 14px; color: var(--muted); min-height: 20px; }
+
+.list { display: grid; gap: 16px; }
+.item {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.item img { width: 100%; height: 180px; object-fit: contain; background: #f0f2f7; border-radius: 8px; }
+.item .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.item .name { font-weight: 600; word-break: break-all; }
+.item textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.badge { font-size: 12px; padding: 2px 10px; border-radius: 99px; background: #eef0f5; color: var(--muted); white-space: nowrap; }
+.badge.working { background: #fff4d6; color: #9a6b00; }
+.badge.done { background: #dcf5e7; color: var(--success); }
+.badge.error { background: #fde3e3; color: var(--danger); }
+.remove { border: none; background: none; color: var(--danger); cursor: pointer; font-size: 13px; }
+
+/* ---------- Xử lý câu hỏi ---------- */
+.panel {
+  margin-top: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.panel h2 { margin: 0 0 14px; font-size: 18px; }
+.panel h3 { margin: 20px 0 10px; font-size: 15px; }
+.options { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.options .check { color: var(--text); }
+.options select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.options input[type="range"] { width: 120px; }
+.options :disabled { opacity: .5; }
+.hint { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.stats { margin-top: 14px; font-size: 15px; }
+.dups { margin-top: 10px; font-size: 14px; }
+.dups summary { cursor: pointer; color: var(--danger); font-weight: 600; }
+.dups ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
+.dups li { border-left: 3px solid var(--danger); background: #fdf3f3; border-radius: 6px; padding: 8px 12px; }
+.dup-head { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.panel pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Times New Roman', serif;
+  font-size: 15px;
+}
+.preview {
+  max-height: 500px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  background: #fcfcfd;
+}
+
+@media (max-width: 640px) {
+  .item { grid-template-columns: 1fr; }
+  header.topbar { padding: 12px 16px; }
+}
+
+.auth-card .logo { font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 14px; }
