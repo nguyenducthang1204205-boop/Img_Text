@@ -2,12 +2,12 @@
   "name": "duc-thang",
   "version": "2.0.0",
   "private": true,
-  "description": "Đức Thắng – đăng nhập, tải nhiều ảnh, trích xuất chữ (OCR trên trình duyệt), đánh số và lọc câu hỏi trùng, xuất file Word. Chạy trên Cloudflare Pages + D1.",
+  "description": "Đức Thắng – đăng nhập, tải nhiều ảnh, trích xuất chữ (OCR trên trình duyệt), đánh số và lọc câu hỏi trùng, xuất file Word. Chạy trên Cloudflare Workers + D1.",
   "scripts": {
-    "dev": "wrangler pages dev --port 8788",
+    "dev": "wrangler dev --port 8788",
     "db:local": "wrangler d1 migrations apply duc-thang-db --local",
     "db:remote": "wrangler d1 migrations apply duc-thang-db --remote",
-    "deploy": "wrangler pages deploy"
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "^4.48.0"

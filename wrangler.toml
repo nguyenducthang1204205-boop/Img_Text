@@ -1,6 +1,13 @@
 name = "img-text"
-pages_build_output_dir = "public"
+main = "src/index.js"
 compatibility_date = "2025-09-01"
+
+# Trang web tĩnh trong public/. Các đường dẫn dưới đây đi qua Worker trước
+# (API đăng nhập, trang chủ, và kiểm tra đăng nhập cho /app/)
+[assets]
+directory = "public"
+binding = "ASSETS"
+run_worker_first = ["/", "/app", "/app/*", "/api/*"]
 
 [[d1_databases]]
 binding = "DB"

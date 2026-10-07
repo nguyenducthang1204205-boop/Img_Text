@@ -2,39 +2,28 @@
 
 Ứng dụng web: đăng nhập → tải nhiều ảnh → trích xuất toàn bộ chữ trong ảnh (OCR tiếng Việt + tiếng Anh) → đánh số và lọc câu hỏi trùng → tải về file Word (.docx) chỉ gồm các câu hỏi và đáp án.
 
-Chạy trên **Cloudflare Pages + D1**, dùng được với gói Free:
+Chạy trên **Cloudflare Workers + D1**, dùng được với gói Free:
 
 - **OCR và tạo file Word chạy ngay trên trình duyệt** (Tesseract.js, docx). Ảnh không tải lên server.
-- **Cloudflare** chỉ phục vụ trang web và lo đăng nhập/đăng ký (Pages Functions). Tài khoản và phiên đăng nhập lưu trong D1.
+- **Cloudflare Worker** (`src/index.js`) lo đăng nhập/đăng ký và chặn trang `/app/` khi chưa đăng nhập. Các file trong `public/` được Cloudflare phục vụ trực tiếp. Tài khoản và phiên đăng nhập lưu trong D1.
 
-## Đưa lên Cloudflare (lần đầu)
+## Triển khai
 
-Cần có tài khoản Cloudflare (miễn phí) và Node.js.
+Code nằm trên GitHub (`nguyenducthang1204205-boop/Img_Text`). Worker `img-text` trên Cloudflare đã được kết nối với repo này: **mỗi lần đẩy code lên nhánh `main`, Cloudflare tự build và cập nhật trang** (lệnh deploy: `npx wrangler deploy`).
 
-```bash
-npm install
-npx wrangler login                                  # mở trình duyệt để đăng nhập Cloudflare
-npx wrangler d1 create duc-thang-db                 # tạo cơ sở dữ liệu
-```
+Cơ sở dữ liệu D1 `duc-thang-db` đã được khai báo trong `wrangler.toml`. Khi cần tạo lại bảng trên D1 mới, có hai cách:
 
-Lệnh `d1 create` in ra một `database_id`. Chép giá trị đó vào `wrangler.toml`, thay cho `00000000-0000-0000-0000-000000000000`. Sau đó chạy:
+- Dán nội dung `migrations/0001_init.sql` vào tab **Console** của database trên Cloudflare Dashboard rồi bấm Execute.
+- Hoặc chạy `npx wrangler login` rồi `npm run db:remote`.
 
-```bash
-npm run db:remote                                   # tạo bảng users, sessions trên D1
-npx wrangler pages project create img-text --production-branch main
-npm run deploy                                      # đưa trang web lên Cloudflare
-```
-
-Trang web sẽ có địa chỉ `https://img-text.pages.dev`. Nếu tên này đã có người dùng, Cloudflare sẽ báo, khi đó bạn đổi `name` trong `wrangler.toml`. Muốn dùng tên miền riêng thì vào Cloudflare Dashboard → Workers & Pages → img-text → Custom domains.
-
-**Cập nhật sau khi sửa code:** chỉ cần `npm run deploy`.
+Muốn dùng tên miền riêng: Cloudflare Dashboard → Workers & Pages → img-text → Settings → Domains & Routes.
 
 ## Chạy thử trên máy
 
 ```bash
 npm install
 npm run db:local      # chỉ cần chạy lần đầu
-npm run dev           # mở http://localhost:8788
+npm run dev           # mở http://127.0.0.1:8788
 ```
 
 ## Cách dùng
@@ -71,9 +60,8 @@ public/               Trang web tĩnh
     image-prep.js                   Phóng to (Lanczos3), chuyển xám, tăng tương phản ảnh trước khi OCR
     fix-text.js                     Tách âm tiết tiếng Việt bị đọc dính ("lọcnhiễu" → "lọc nhiễu")
     questions.js                    Dọn chữ thừa, tách câu hỏi, đánh số, lọc câu trùng
-functions/            Pages Functions (chạy trên Cloudflare)
-  _middleware.js                    Chặn /app/ khi chưa đăng nhập
-  api/register.js, login.js, logout.js, me.js
+src/index.js          Cloudflare Worker: API đăng nhập (/api/register, login, logout, me),
+                      chặn /app/ khi chưa đăng nhập, còn lại trả file tĩnh trong public/
 lib/auth.js           Băm mật khẩu PBKDF2, quản lý phiên đăng nhập trong D1
 migrations/           Cấu trúc bảng D1
 wrangler.toml         Cấu hình Cloudflare
