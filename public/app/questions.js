@@ -71,8 +71,23 @@
   }
 
   // ---------- Đáp án dạng bảng / nhiều đáp án trên một dòng ----------
-  // Ký tự do nút tròn, ô chọn, vạch ngăn cột bị OCR đọc ra: "O", "QO", "@®", "(®", "©)", "|"...
-  const RADIO_TOKEN_RE = /^[OoQ0ØøÔôỞởÒòƠơỌọ©®@○●◯◉•()[\]|']{1,3}$/u;
+  // Ký tự do nút tròn, ô vuông chọn, vạch ngăn cột bị OCR đọc ra:
+  // "O", "QO", "oO", "@®", "(®", "©)", "|", "=]", "[J]", "[-]", "Í-]", "☑"...
+  // Chỉ gồm ký hiệu và chữ IN HOA dễ nhầm (cộng "o"), để không nuốt mất chữ thật như "lọc", "có"
+  const RADIO_TOKEN_RE = /^[OoQ0ØÔỞÒƠỌCJIÍV©®@○●◯◉•()[\]|'=\-–_✓✔☐☑☒□■]{1,4}$/u;
+
+  // Hàng nút chọn Đúng/Sai ("@ Sai @ Đúng", "○ Đúng"): bỏ, vì câu hỏi đã ghi "Đúng hay Sai"
+  const TRUE_FALSE_RE = /^(?:đúng|sai|true|false)$/iu;
+  function isChoiceRow(line) {
+    const tokens = line.trim().split(/\s+/);
+    const tf = tokens.filter((t) => TRUE_FALSE_RE.test(t)).length;
+    const radios = tokens.filter((t) => RADIO_TOKEN_RE.test(t)).length;
+    return tf > 0 && tf + radios === tokens.length && (radios > 0 || tf >= 2);
+  }
+
+  // Dòng hướng dẫn của trang làm bài: "ⓘ Sinh viên chọn 2 phương án đúng nhất"
+  const HINT_RE =
+    /^\W{0,3}\s*(?:sinh\s*viên|thí\s*sinh|học\s*sinh|bạn|em)?\s*(?:hãy\s*)?chọn\s+(?:\d+|một|hai|ba|bốn|nhiều)\s+(?:phương\s*án|đáp\s*án|câu\s*trả\s*lời)(?:\s+đúng(?:\s+nhất)?)?\s*[.:]?\s*$/iu;
 
   // Chữ cái đáp án đứng riêng: "A", "B.", "C)", "(D)", "A,", và "Cc" (OCR đọc lặp chữ)
   function optionLetter(token) {
@@ -90,6 +105,10 @@
   // nút chọn đi kèm, để không tách nhầm câu như "vitamin B và C". Không phải dòng đáp án thì trả null.
   function splitOptionRow(line, prevLetter) {
     const tokens = line.replace(/(^|\s)([A-H][.):])(?=\S)/gu, '$1$2 ').trim().split(/\s+/);
+    // Chữ cái đáp án bị đọc thành chữ thường ("c Dễ định lượng..."): chỉ nhận khi đúng thứ tự sau đáp án trên
+    if (/^[a-h]$/.test(tokens[0]) && prevLetter && tokens[0].toUpperCase() === nextLetter(prevLetter)) {
+      tokens[0] = tokens[0].toUpperCase();
+    }
     const first = optionLetter(tokens[0]);
     if (!first) return null;
 
@@ -129,9 +148,11 @@
         continue;
       }
       for (const piece of splitOptionRow(line, prevLetter) || [line]) {
-        if (isUiLine(piece) || isNoise(piece)) continue;
+        if (isUiLine(piece) || isNoise(piece) || isChoiceRow(piece) || HINT_RE.test(piece)) continue;
         const m = /^\s*([A-H])\s*[.):,]/.exec(piece);
-        prevLetter = m ? m[1] : isOption(piece) ? prevLetter : null;
+        // Chỉ quên chữ cái đáp án trước đó khi sang câu hỏi mới
+        if (m) prevLetter = m[1];
+        else if (KEYWORD_RE.test(piece)) prevLetter = null;
         out.push(piece);
       }
     }

@@ -52,8 +52,13 @@
     return syllables.join(' ');
   }
 
+  // Tesseract hay đọc "ă" thành "ä" (tiếng Việt không có "ä")
+  const fixLetters = (word) => word.replace(/ä/g, 'ă').replace(/Ä/g, 'Ă');
+
   function fixMergedSyllables(text) {
-    return String(text).normalize('NFC').replace(/\p{L}+/gu, splitWord);
+    return String(text)
+      .normalize('NFC')
+      .replace(/\p{L}+/gu, (word) => splitWord(fixLetters(word)));
   }
 
   const api = { fixMergedSyllables };

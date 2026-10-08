@@ -77,8 +77,10 @@
     const first = (await worker.recognize(renderCanvas(img, 1), {}, { text: true, blocks: true })).data;
     let scale = ImagePrep.chooseScale(lineHeights(first), img.w);
     scale = Math.min(scale, Math.sqrt(MAX_PIXELS / (img.w * img.h)));
-    let text = first.text;
-    if (scale >= MIN_RESCALE) text = (await worker.recognize(renderCanvas(img, scale))).data.text;
+    const data =
+      scale >= MIN_RESCALE ? (await worker.recognize(renderCanvas(img, scale), {}, { text: true, blocks: true })).data : first;
+    // Dựng lại văn bản theo bố cục (tách cột, bỏ dòng rác); không dựng được thì dùng văn bản gốc
+    const text = Layout.toText(data.blocks) || data.text;
     return FixText.fixMergedSyllables(text).trim();
   }
 
