@@ -70,10 +70,43 @@ function namePasted(blob) {
 }
 
 function addPasted(blobs) {
-  addFiles(blobs.map(namePasted));
-  setStatus(`Đã dán ${blobs.length} ảnh. Bấm "Trích xuất chữ" để đọc chữ.`);
+  const added = addFiles(blobs.map(namePasted));
+  added.forEach((item) => (item.pasted = true));
+  renderPasteInfo();
+  const names = added.map((i) => i.file.name).join(', ');
+  setStatus(`Đã dán ${names} – danh sách có ${items.length} ảnh. Copy ảnh khác rồi dán tiếp, hoặc bấm "Trích xuất chữ".`);
+  // Nháy viền để thấy rõ mỗi lần dán, kể cả khi dán liên tiếp
+  pasteZone.classList.remove('ok');
+  void pasteZone.offsetWidth;
   pasteZone.classList.add('ok');
-  setTimeout(() => pasteZone.classList.remove('ok'), 1200);
+  clearTimeout(addPasted.timer);
+  addPasted.timer = setTimeout(() => pasteZone.classList.remove('ok'), 1200);
+}
+
+// Ảnh thu nhỏ của các ảnh đã dán ngay trong ô dán, để thấy ảnh mới xuất hiện mỗi lần dán
+// (danh sách ảnh đầy đủ nằm bên dưới, thường khuất khỏi màn hình)
+const MAX_THUMBS = 8;
+function renderPasteInfo() {
+  const pasted = items.filter((i) => i.pasted);
+  const info = document.getElementById('pasteInfo');
+  const thumbs = document.getElementById('pasteThumbs');
+  info.hidden = pasted.length === 0;
+  document.getElementById('pasteCountText').textContent = `✅ Đã dán ${pasted.length} ảnh – dán tiếp được`;
+  thumbs.innerHTML = '';
+  pasted.slice(-MAX_THUMBS).forEach((item) => {
+    const img = document.createElement('img');
+    img.src = item.url;
+    img.alt = item.file.name;
+    img.title = `${item.file.name} – bấm để xem trong danh sách`;
+    img.addEventListener('click', () => item.el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    thumbs.appendChild(img);
+  });
+  if (pasted.length > MAX_THUMBS) {
+    const more = document.createElement('span');
+    more.className = 'more';
+    more.textContent = `+${pasted.length - MAX_THUMBS}`;
+    thumbs.prepend(more);
+  }
 }
 
 const NO_IMAGE_MSG = 'Bộ nhớ tạm không có ảnh. Hãy copy ảnh (chuột phải → Sao chép hình ảnh) hoặc chụp màn hình rồi dán lại.';
@@ -125,13 +158,15 @@ document.getElementById('pasteBtn').addEventListener('click', async () => {
 function addFiles(fileList) {
   const images = [...fileList].filter((f) => f.type.startsWith('image/'));
   if (images.length < fileList.length) setStatus('Đã bỏ qua các file không phải ảnh.');
-  images.forEach((file) => {
+  const added = images.map((file) => {
     const item = { id: nextId++, file, url: URL.createObjectURL(file), text: '', state: 'pending' };
     item.el = renderItem(item);
     list.appendChild(item.el);
     items.push(item);
+    return item;
   });
   updateButtons();
+  return added;
 }
 
 function renderItem(item) {
@@ -173,6 +208,7 @@ function removeItem(item) {
   items = items.filter((i) => i !== item);
   updateButtons();
   renderPreview();
+  renderPasteInfo();
 }
 
 clearBtn.addEventListener('click', () => {
@@ -183,6 +219,7 @@ clearBtn.addEventListener('click', () => {
   setStatus('');
   updateButtons();
   renderPreview();
+  renderPasteInfo();
 });
 
 function updateButtons() {
