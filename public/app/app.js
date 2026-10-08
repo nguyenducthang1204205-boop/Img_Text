@@ -58,10 +58,68 @@ fileInput.addEventListener('change', () => {
 );
 dropzone.addEventListener('drop', (e) => addFiles(e.dataTransfer.files));
 
-// Dán ảnh trực tiếp bằng Ctrl+V
+// ---------- Dán ảnh: nút "Dán ảnh", ô dán, hoặc Ctrl+V ở bất kỳ đâu trên trang ----------
+const pasteZone = document.getElementById('pasteZone');
+const pasteTarget = document.getElementById('pasteTarget');
+let pasteCount = 0;
+
+// Ảnh dán từ bộ nhớ tạm thường đều tên "image.png": đặt tên riêng cho dễ phân biệt
+function namePasted(blob) {
+  const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  return new File([blob], `anh-dan-${++pasteCount}.${ext}`, { type: blob.type });
+}
+
+function addPasted(blobs) {
+  addFiles(blobs.map(namePasted));
+  setStatus(`Đã dán ${blobs.length} ảnh. Bấm "Trích xuất chữ" để đọc chữ.`);
+  pasteZone.classList.add('ok');
+  setTimeout(() => pasteZone.classList.remove('ok'), 1200);
+}
+
+const NO_IMAGE_MSG = 'Bộ nhớ tạm không có ảnh. Hãy copy ảnh (chuột phải → Sao chép hình ảnh) hoặc chụp màn hình rồi dán lại.';
+
 document.addEventListener('paste', (e) => {
-  const files = [...e.clipboardData.items].filter((i) => i.kind === 'file').map((i) => i.getAsFile());
-  if (files.length) addFiles(files);
+  const dt = e.clipboardData;
+  if (!dt) return;
+  let files = [...dt.files];
+  if (!files.length) files = [...dt.items].filter((i) => i.kind === 'file').map((i) => i.getAsFile()).filter(Boolean);
+  files = files.filter((f) => f.type.startsWith('image/'));
+  if (files.length) {
+    e.preventDefault(); // không chèn ảnh vào ô chữ đang gõ
+    addPasted(files);
+  } else if (pasteTarget.contains(e.target)) {
+    e.preventDefault();
+    setStatus(NO_IMAGE_MSG);
+  }
+});
+
+// Ô dán chỉ để nhận lệnh dán, luôn giữ trống
+pasteTarget.addEventListener('input', () => (pasteTarget.innerHTML = ''));
+pasteTarget.addEventListener('drop', (e) => {
+  e.preventDefault();
+  addFiles(e.dataTransfer.files);
+});
+
+// Nút "Dán ảnh": đọc thẳng bộ nhớ tạm (trình duyệt có thể hỏi quyền lần đầu).
+// Trình duyệt không hỗ trợ hoặc bị từ chối thì chuyển sang ô dán để người dùng tự dán.
+document.getElementById('pasteBtn').addEventListener('click', async () => {
+  const askManual = () => {
+    pasteTarget.focus();
+    setStatus('Trình duyệt không cho đọc bộ nhớ tạm trực tiếp. Hãy nhấn Ctrl+V, hoặc trên điện thoại nhấn giữ vào ô bên dưới nút rồi chọn "Dán".');
+  };
+  if (!navigator.clipboard || !navigator.clipboard.read) return askManual();
+  try {
+    const blobs = [];
+    for (const item of await navigator.clipboard.read()) {
+      const type = item.types.find((t) => t.startsWith('image/'));
+      if (type) blobs.push(await item.getType(type));
+    }
+    if (blobs.length) addPasted(blobs);
+    else setStatus(NO_IMAGE_MSG);
+  } catch (err) {
+    console.warn('Không đọc được bộ nhớ tạm:', err);
+    askManual();
+  }
 });
 
 function addFiles(fileList) {

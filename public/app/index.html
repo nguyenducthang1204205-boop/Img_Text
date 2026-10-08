@@ -17,11 +17,28 @@
   </header>
 
   <main class="container">
-    <div class="dropzone" id="dropzone">
-      <div class="icon">🖼️</div>
-      <strong>Kéo thả ảnh vào đây hoặc bấm để chọn</strong>
-      <span>Hỗ trợ JPG, PNG, WEBP, BMP, GIF – chọn được nhiều ảnh cùng lúc. Ảnh được xử lý ngay trên máy bạn, không tải lên server</span>
-      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" multiple hidden />
+    <div class="inputs">
+      <div class="dropzone" id="dropzone">
+        <div class="icon">🖼️</div>
+        <strong>Kéo thả ảnh vào đây hoặc bấm để chọn</strong>
+        <span>Hỗ trợ JPG, PNG, WEBP, BMP, GIF – chọn được nhiều ảnh cùng lúc. Ảnh được xử lý ngay trên máy bạn, không tải lên server</span>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" multiple hidden />
+      </div>
+
+      <div class="pastezone" id="pasteZone">
+        <div class="icon">📋</div>
+        <strong>Dán ảnh đã copy</strong>
+        <button type="button" class="btn" id="pasteBtn">📋 Dán ảnh</button>
+        <div
+          class="paste-target"
+          id="pasteTarget"
+          contenteditable="true"
+          inputmode="none"
+          role="textbox"
+          aria-label="Ô dán ảnh"
+          data-placeholder="hoặc bấm vào đây rồi nhấn Ctrl+V (điện thoại: nhấn giữ → Dán)"
+        ></div>
+      </div>
     </div>
 
     <div class="toolbar">

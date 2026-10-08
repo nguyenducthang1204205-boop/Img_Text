@@ -90,6 +90,40 @@ header.topbar .user { display: flex; align-items: center; gap: 12px; color: var(
 
 main.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
 
+.inputs { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+.pastezone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 2px dashed #b9c3d8;
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 20px;
+  text-align: center;
+  transition: border-color .15s, background .15s;
+}
+.pastezone.ok { border-color: var(--success); background: #eefaf3; }
+.pastezone .icon { font-size: 40px; line-height: 1; }
+.pastezone strong { font-size: 17px; }
+.paste-target {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fafbfd;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: text;
+  overflow: hidden;
+  outline: none;
+}
+.paste-target:empty::before { content: attr(data-placeholder); }
+.paste-target:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47, 111, 237, .15); }
+
 .dropzone {
   border: 2px dashed #b9c3d8;
   border-radius: var(--radius);
@@ -190,8 +224,11 @@ main.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
 }
 
 @media (max-width: 640px) {
+  .inputs { grid-template-columns: 1fr; }
   .item { grid-template-columns: 1fr; }
-  header.topbar { padding: 12px 16px; }
+  header.topbar { padding: 12px 16px; gap: 8px; }
+  header.topbar .brand, header.topbar .btn { white-space: nowrap; }
+  header.topbar #who { font-size: 13px; }
 }
 
 .auth-card .logo { font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 14px; }

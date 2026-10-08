@@ -28,7 +28,7 @@ npm run dev           # mở http://127.0.0.1:8788
 
 ## Cách dùng
 
-1. Kéo thả ảnh vào khung, bấm để chọn nhiều ảnh, hoặc dán ảnh bằng Ctrl+V.
+1. Thêm ảnh bằng một trong các cách: kéo thả vào khung, bấm để chọn nhiều ảnh, hoặc **dán ảnh đã copy**: bấm nút **📋 Dán ảnh**, hoặc bấm vào ô dán rồi nhấn Ctrl+V (trên điện thoại: nhấn giữ vào ô → Dán). Ctrl+V ở bất kỳ đâu trên trang cũng dán được.
 2. Bấm **Trích xuất chữ**. Lần đầu, trình duyệt tải dữ liệu nhận dạng chữ (khoảng 10–15MB), các lần sau dùng bản đã lưu. Chữ hiện ra trong ô bên cạnh mỗi ảnh và bạn có thể sửa lại.
 3. Trong bảng **Xử lý câu hỏi**:
    - **Đánh số câu hỏi tự động**: nhận câu hỏi theo dạng "Câu 1", "Câu hỏi 1", "Bài 1", "Question 1" hoặc "1." ở đầu dòng, rồi đánh số lại liên tục qua tất cả các ảnh (chọn kiểu `Câu 1:`, `Câu 1.`, `1.` hoặc `Question 1:`).
