@@ -40,7 +40,7 @@ npm run dev           # mở http://127.0.0.1:8788
      - thanh trạng thái điện thoại (giờ, pin) và tiêu đề kèm đồng hồ đếm giờ;
      - số trang ("1/15") và các nhãn/nút như "Trả lời:", "Câu hỏi", "Nộp bài";
      - ký tự rác do đọc ma trận, hình vẽ hoặc nhãn màu;
-     - nút tròn chọn đáp án ("O A." → "A.", "8." → "B.").
+     - nút tròn chọn đáp án ("O A." → "A.", "8." → "B."), và tách các đáp án nằm cùng một dòng (bố cục 2 cột: "A ○ … B ○ …").
    - Ô **Xem trước** cho thấy đúng nội dung sẽ nằm trong file Word.
 4. Bấm **Tải file Word**: file `.docx` chỉ gồm các câu hỏi, viết liền nhau, mỗi câu cách nhau 1 dòng trống, số câu được in đậm.
 
@@ -48,6 +48,7 @@ npm run dev           # mở http://127.0.0.1:8788
 
 - Ma trận, công thức hay hình vẽ dạng ảnh trong câu hỏi không đọc được bằng OCR nên bị bỏ. Bạn cần tự bổ sung vào file Word.
 - Điện thoại cấu hình yếu sẽ đọc mỗi ảnh chậm hơn máy tính vài giây.
+- Ảnh chụp màn hình bằng điện thoại (có sọc vân) được làm phẳng nền trước khi đọc, nhưng vẫn có thể sai vài dấu câu; hãy xem lại phần xem trước.
 
 ## Cấu trúc
 
@@ -57,7 +58,7 @@ public/               Trang web tĩnh
   app/                Chỉ xem được khi đã đăng nhập
     index.html, app.js              Giao diện chính, tạo file Word
     ocr.js                          Gọi Tesseract.js trên trình duyệt
-    image-prep.js                   Phóng to (Lanczos3), chuyển xám, tăng tương phản ảnh trước khi OCR
+    image-prep.js                   Làm phẳng nền (bỏ sọc vân khi chụp màn hình), phóng to theo cỡ chữ (Lanczos3), tăng tương phản
     fix-text.js                     Tách âm tiết tiếng Việt bị đọc dính ("lọcnhiễu" → "lọc nhiễu")
     questions.js                    Dọn chữ thừa, tách câu hỏi, đánh số, lọc câu trùng
 src/index.js          Cloudflare Worker: API đăng nhập (/api/register, login, logout, me),

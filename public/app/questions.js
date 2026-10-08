@@ -70,6 +70,52 @@
     return isFormulaJunk(t);
   }
 
+  // ---------- Đáp án dạng bảng / nhiều đáp án trên một dòng ----------
+  // Ký tự do nút tròn, ô chọn, vạch ngăn cột bị OCR đọc ra: "O", "QO", "@®", "(®", "©)", "|"...
+  const RADIO_TOKEN_RE = /^[OoQ0ØøÔôỞởÒòƠơỌọ©®@○●◯◉•()[\]|']{1,3}$/u;
+
+  // Chữ cái đáp án đứng riêng: "A", "B.", "C)", "(D)", "A,", và "Cc" (OCR đọc lặp chữ)
+  function optionLetter(token) {
+    const m = /^\(?([A-H])([A-Ha-h])?\)?([.):,])?$/u.exec(token || '');
+    if (!m || (m[2] && m[2].toUpperCase() !== m[1])) return null;
+    return { letter: m[1], punct: Boolean(m[3]) };
+  }
+
+  const nextLetter = (l) => String.fromCharCode(l.charCodeAt(0) + 1);
+
+  // Tách dòng đáp án, kể cả nhiều đáp án nằm trên một dòng (bố cục 2 cột):
+  //   "A @® Kỹ năng lập trình Python B | O Kỹ năng làm việc nhóm"
+  //   -> ["A. Kỹ năng lập trình Python", "B. Kỹ năng làm việc nhóm"]
+  // Chữ cái giữa dòng chỉ được coi là đáp án mới khi đúng thứ tự (A→B→C) và có dấu chấm hoặc
+  // nút chọn đi kèm, để không tách nhầm câu như "vitamin B và C". Không phải dòng đáp án thì trả null.
+  function splitOptionRow(line, prevLetter) {
+    const tokens = line.replace(/(^|\s)([A-H][.):])(?=\S)/gu, '$1$2 ').trim().split(/\s+/);
+    const first = optionLetter(tokens[0]);
+    if (!first) return null;
+
+    const options = [];
+    let current = null;
+    let expected = first.letter;
+    for (let i = 0; i < tokens.length; i++) {
+      const head = optionLetter(tokens[i]);
+      const marked = head && (head.punct || RADIO_TOKEN_RE.test(tokens[i + 1] || ''));
+      if (head && head.letter === expected && (i === 0 || marked)) {
+        current = { letter: head.letter, marked, words: [] };
+        options.push(current);
+        expected = nextLetter(head.letter);
+        while (i + 1 < tokens.length && RADIO_TOKEN_RE.test(tokens[i + 1])) i++; // bỏ nút chọn
+        continue;
+      }
+      if (tokens[i] !== '|') current.words.push(tokens[i]);
+    }
+
+    // Chữ cái đầu dòng đứng trơ trọi ("A Kỹ năng...") chỉ được coi là đáp án khi có nút chọn,
+    // có dấu chấm, có đáp án tiếp theo trên cùng dòng, hoặc nối tiếp đáp án dòng trên
+    const ok = first.punct || options[0].marked || options.length > 1 || (prevLetter && first.letter === nextLetter(prevLetter));
+    if (!ok || options.every((o) => !o.words.length)) return null;
+    return options.filter((o) => o.words.length).map((o) => `${o.letter}. ${o.words.join(' ')}`);
+  }
+
   // Làm sạch từng dòng, bỏ dòng giao diện/rác. Giữ dòng trống (dùng để nhận biết đoạn văn).
   function cleanLines(lines) {
     const out = [];
@@ -82,10 +128,12 @@
         out.push('');
         continue;
       }
-      if (isUiLine(line) || isNoise(line)) continue;
-      const m = /^\s*([A-H])\s*[.):,]/.exec(line);
-      prevLetter = m ? m[1] : isOption(line) ? prevLetter : null;
-      out.push(line);
+      for (const piece of splitOptionRow(line, prevLetter) || [line]) {
+        if (isUiLine(piece) || isNoise(piece)) continue;
+        const m = /^\s*([A-H])\s*[.):,]/.exec(piece);
+        prevLetter = m ? m[1] : isOption(piece) ? prevLetter : null;
+        out.push(piece);
+      }
     }
     return out;
   }
@@ -138,7 +186,9 @@
       }
 
       if (starts) {
-        const body = marker ? line.replace(marker, '') : line.replace(JUNK_LABEL_RE, '');
+        let body = marker ? line.replace(marker, '') : line.replace(JUNK_LABEL_RE, '');
+        // Ký tự rác lẻ loi sau nhãn số câu ("Câu 1: y")
+        if (marker && /^\s*[^\s?]{1,2}\s*$/u.test(body)) body = '';
         current = { raw: [line], body: [body], hasOption: false };
         questions.push(current);
       } else if (current) {
