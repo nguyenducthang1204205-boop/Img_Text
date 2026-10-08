@@ -42,6 +42,8 @@ npm run dev           # mở http://127.0.0.1:8788
      - ký tự rác do đọc ma trận, hình vẽ hoặc nhãn màu;
      - nút tròn / ô vuông chọn đáp án ("O A." → "A.", "8." → "B."), hàng nút "Đúng / Sai", dòng hướng dẫn "Sinh viên chọn 2 phương án đúng nhất";
      - đáp án và ý trình bày 2 cột được đọc đúng thứ tự (hết cột trái mới sang cột phải), dòng bị xuống hàng được nối lại.
+   - **Câu Đúng/Sai nhiều ý** ("Phát biểu sau đây… Đúng hay Sai?" kèm các ý 1), 2)…): dưới mỗi ý in "Đúng" và "Sai".
+   - **Câu kéo thả / ghép nối** ("Hãy kéo thả…", "Ghép nối…"): in từ khoá, dòng dưới là câu trả lời ghép với nó, có gạch đầu dòng "- ".
    - Ô **Xem trước** cho thấy đúng nội dung sẽ nằm trong file Word.
 4. Bấm **Tải file Word**: file `.docx` chỉ gồm các câu hỏi, viết liền nhau, mỗi câu cách nhau 1 dòng trống, số câu được in đậm.
 

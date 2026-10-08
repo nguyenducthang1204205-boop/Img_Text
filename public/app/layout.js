@@ -11,6 +11,18 @@
   // Khoảng cách dọc lớn hơn ngần này lần chiều cao chữ thì sang hàng/đoạn mới
   const BAND_GAP = 1.0;
 
+  // Chữ rác lẫn trong dòng chữ thật (sọc vân, icon "X" đè lên chữ): độ tin cậy thấp.
+  // Giữ lại chữ thật bị đọc dính/méo: dài từ 5 ký tự và có dấu tiếng Việt ("Trong/các", "Kỹnănggiao")
+  const VN_MARK = /[̀-ͯ]|đ/iu;
+  function isJunkWord(w) {
+    const t = w.text.trim();
+    if (w.confidence < 60 && [...t].length <= 2) return true;
+    if (w.confidence >= 45) return false;
+    return !([...t].length >= 5 && VN_MARK.test(t.normalize('NFD')));
+  }
+
+  const TRUE_FALSE_ROW = /^[^\p{L}]*(?:(?:đúng|sai|true|false)[^\p{L}]*)+$/iu;
+
   function median(values) {
     const s = [...values].sort((a, b) => a - b);
     return s.length ? s[s.length >> 1] : 0;
@@ -32,7 +44,7 @@
       let cur = null;
       for (const w of [...line.words].sort((a, b) => a.bbox.x0 - b.bbox.x0)) {
         const text = w.text.trim();
-        if (!text) continue;
+        if (!text || isJunkWord(w)) continue;
         if (!cur || w.bbox.x0 - cur.x1 > COLUMN_GAP * wordH) {
           cur = { words: [], x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, first: !cur };
           segs.push(cur);
@@ -103,7 +115,12 @@
         const merged = [];
         for (const t of texts) {
           const prev = merged[merged.length - 1];
-          const continues = prev !== undefined && !/[?:]$/.test(prev) && /^\p{Ll}/u.test(t) && !/^[a-h][.)]?\s/u.test(t);
+          const continues =
+            prev !== undefined &&
+            !/[?:]$/.test(prev) &&
+            /^\p{Ll}/u.test(t) &&
+            !/^[a-h][.)]?\s/u.test(t) &&
+            !TRUE_FALSE_ROW.test(t); // hàng nút "sai @ Đúng" không phải phần xuống hàng
           if (continues) merged[merged.length - 1] = `${prev} ${t}`;
           else merged.push(t);
         }

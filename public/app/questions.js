@@ -164,9 +164,12 @@
   // continuation: ảnh bắt đầu bằng đáp án => phần đáp án tràn từ câu cuối của ảnh trước.
   function splitQuestions(text) {
     const lines = cleanLines(String(text || '').replace(/\r\n?/g, '\n').split('\n'));
+    // Ảnh không có "Câu N" mà là câu Đúng/Sai nhiều ý: "1)", "2)" là ý con, không phải số câu
+    const firstNumbered = lines.findIndex((l) => NUMBER_RE.test(l));
+    const trueFalseItems = firstNumbered > 0 && TRUE_FALSE_STEM_RE.test(lines.slice(0, firstNumbered).join(' '));
     const marker = lines.some((l) => KEYWORD_RE.test(l))
       ? KEYWORD_RE
-      : lines.some((l) => NUMBER_RE.test(l))
+      : firstNumbered >= 0 && !trueFalseItems
         ? NUMBER_RE
         : null;
     const hasOptions = lines.some(isOption);
@@ -203,16 +206,23 @@
         starts = plain && (!current || current.hasOption || current.closed);
       } else {
         // Không có số câu lẫn đáp án: mỗi đoạn văn là một câu
-        starts = prevBlank;
+        // (trừ câu kéo thả / Đúng-Sai nhiều ý: các đoạn bên dưới thuộc cùng câu)
+        starts = prevBlank && !(current && current.grouped);
       }
 
       if (starts) {
         let body = marker ? line.replace(marker, '') : line.replace(JUNK_LABEL_RE, '');
         // Ký tự rác lẻ loi sau nhãn số câu ("Câu 1: y")
         if (marker && /^\s*[^\s?]{1,2}\s*$/u.test(body)) body = '';
-        current = { raw: [line], body: [body], hasOption: false };
+        const grouped = MATCHING_RE.test(line) || TRUE_FALSE_STEM_RE.test(line);
+        current = { raw: [line], body: [body], hasOption: false, grouped };
         questions.push(current);
       } else if (current) {
+        // Giữ dòng trống bên trong câu: ranh giới giữa các cặp của câu kéo thả
+        if (prevBlank) {
+          current.raw.push('');
+          current.body.push('');
+        }
         current.raw.push(line);
         current.body.push(line);
         if (isOption(line)) current.hasOption = true;
@@ -225,8 +235,79 @@
     return {
       intro: intro.join('\n').trim(),
       continuation: intro.length > 0 && isOption(intro[0]),
-      questions: questions.map((q) => ({ raw: q.raw.join('\n').trim(), body: q.body.join('\n').trim() })),
+      questions: questions.map((q) => ({ raw: formatBody(q.raw.join('\n')), body: formatBody(q.body.join('\n')) })),
     };
+  }
+
+  // ---------- Định dạng theo loại câu hỏi ----------
+  // Câu kéo thả / ghép nối: "Hãy kéo thả mỗi kỹ năng mềm với mô tả phù hợp nhất"
+  const MATCHING_RE = /kéo\s*(?:và\s*)?thả|ghép\s*(?:nối|cặp|đôi)|nối\s*(?:mỗi|các|cột|từ)|drag\s*(?:and|&)\s*drop|\bmatch(?:ing)?\b/iu;
+  // Câu Đúng/Sai nhiều ý: "Phát biểu sau đây về ... Đúng hay Sai?" + các ý "1) ...", "2) ..."
+  const TRUE_FALSE_STEM_RE = /đúng\s*(?:hay|hoặc|\/|-)\s*sai|true\s*(?:or|\/)\s*false/iu;
+  const SUB_ITEM_RE = /^\s*\(?\d{1,2}\s*[).]\s+\S/u;
+
+  const letterWords = (line) => line.match(/\p{L}+/gu) || [];
+  // Hàng nút "C sai @ Đúng #": chỉ gồm chữ Đúng/Sai và ký tự lẻ
+  function isTrueFalseRow(line) {
+    const words = letterWords(line);
+    return words.some((w) => TRUE_FALSE_RE.test(w)) && words.every((w) => TRUE_FALSE_RE.test(w) || w.length === 1);
+  }
+
+  function formatBody(text) {
+    const lines = text.split('\n');
+    const filled = lines.filter((l) => l.trim());
+    const firstSub = filled.findIndex((l) => SUB_ITEM_RE.test(l));
+    if (firstSub >= 0 && TRUE_FALSE_STEM_RE.test(filled.slice(0, firstSub).join(' '))) {
+      return formatTrueFalse(filled, firstSub);
+    }
+    if (MATCHING_RE.test(filled.slice(0, 2).join(' '))) return formatMatching(lines);
+    return filled.join('\n').trim();
+  }
+
+  // Mỗi ý nhỏ, bên dưới in "Đúng" và "Sai". Bỏ các hàng nút đọc được từ ảnh (thường sai/thiếu).
+  function formatTrueFalse(lines, firstSub) {
+    const out = lines.slice(0, firstSub);
+    let item = null;
+    const flush = () => item && out.push(item, 'Đúng', 'Sai');
+    for (const line of lines.slice(firstSub)) {
+      if (SUB_ITEM_RE.test(line)) {
+        flush();
+        item = line.trim();
+      } else if (!isTrueFalseRow(line) && letterWords(line).filter((w) => w.length >= 2).length >= 2) {
+        item += ' ' + line.trim(); // phần xuống hàng của ý
+      }
+    }
+    flush();
+    return out.join('\n').trim();
+  }
+
+  // Các cặp cách nhau bằng dòng trống; trong mỗi cặp dòng đầu là từ khoá, phần còn lại là mô tả:
+  //   Tư duy phản biện và giải quyết vấn đề
+  //   - Giúp bạn phân tích thông tin khách quan...
+  function formatMatching(lines) {
+    const groups = [];
+    let group = [];
+    for (const line of lines) {
+      if (line.trim()) group.push(line.trim());
+      else if (group.length) {
+        groups.push(group);
+        group = [];
+      }
+    }
+    if (group.length) groups.push(group);
+    const [stem = [], ...pairs] = groups;
+    const out = [...stem];
+    for (const [keyword, ...desc] of pairs) {
+      out.push(trimTail(keyword));
+      if (desc.length) out.push(`- ${trimTail(desc.join(' '))}`);
+    }
+    return out.join('\n').trim();
+  }
+
+  // Rác cuối dòng do icon "X" đè lên chữ: số lẻ ("sáng tạo 3") hoặc chữ in hoa có dấu ("hợp tác SỰ").
+  // Từ viết tắt thật (SQL, USB...) không có dấu nên được giữ.
+  function trimTail(line) {
+    return line.replace(/\s+(?:\d|(?=\p{Lu}{1,3}$)[\p{Lu}]*[^\x00-\x7F][\p{Lu}]*)$/u, '');
   }
 
   // Chuẩn hoá để so sánh: chữ thường, bỏ dấu câu và khoảng trắng thừa

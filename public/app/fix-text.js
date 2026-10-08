@@ -55,10 +55,12 @@
   // Tesseract hay đọc "ă" thành "ä" (tiếng Việt không có "ä")
   const fixLetters = (word) => word.replace(/ä/g, 'ă').replace(/Ä/g, 'Ă');
 
+  // "qu" đứng riêng không phải âm tiết tiếng Việt: OCR tách nhầm "quyết" thành "qu yết"
+  const joinBrokenQu = (text) =>
+    text.replace(/(?<!\p{L})([Qq]u) (?=[aăâeêioôơuưyáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ])/gu, '$1');
+
   function fixMergedSyllables(text) {
-    return String(text)
-      .normalize('NFC')
-      .replace(/\p{L}+/gu, (word) => splitWord(fixLetters(word)));
+    return joinBrokenQu(String(text).normalize('NFC')).replace(/\p{L}+/gu, (word) => splitWord(fixLetters(word)));
   }
 
   const api = { fixMergedSyllables };
