@@ -105,6 +105,10 @@
   // nút chọn đi kèm, để không tách nhầm câu như "vitamin B và C". Không phải dòng đáp án thì trả null.
   function splitOptionRow(line, prevLetter) {
     const tokens = line.replace(/(^|\s)([A-H][.):])(?=\S)/gu, '$1$2 ').trim().split(/\s+/);
+    // Vạch ngăn cột / nút chọn đứng trước chữ cái đáp án: "| D | O Kỹ năng giao tiếp"
+    let lead = 0;
+    while (lead < tokens.length - 1 && RADIO_TOKEN_RE.test(tokens[lead]) && !optionLetter(tokens[lead])) lead++;
+    if (lead > 0 && optionLetter(tokens[lead])) tokens.splice(0, lead);
     // Chữ cái đáp án bị đọc thành chữ thường ("c Dễ định lượng..."): chỉ nhận khi đúng thứ tự sau đáp án trên
     if (/^[a-h]$/.test(tokens[0]) && prevLetter && tokens[0].toUpperCase() === nextLetter(prevLetter)) {
       tokens[0] = tokens[0].toUpperCase();
