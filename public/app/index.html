@@ -3,92 +3,422 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Đức Thắng</title>
+  <meta name="color-scheme" content="light dark" />
+  <title>Đức Thắng – Ảnh thành file Word</title>
+  <script>
+    // Đặt giao diện sáng/tối trước khi vẽ trang để không bị nháy
+    try { var t = localStorage.getItem('dt-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E📄%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 </head>
-<body>
+<body class="app">
+  <!-- Bộ biểu tượng (vẽ theo nét Lucide) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+      <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+      <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8h8"/><path d="M7 12h10"/><path d="M7 16h6"/></symbol>
+      <symbol id="i-file-down" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></symbol>
+      <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+      <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+      <symbol id="i-keyboard" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></symbol>
+      <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+      <symbol id="i-hash" viewBox="0 0 24 24"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+      <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></symbol>
+      <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+    </defs>
+  </svg>
+
+  <a class="skip-link" href="#workspace">Bỏ qua, tới vùng làm việc</a>
+
   <header class="topbar">
-    <div class="brand">📄 Đức Thắng</div>
-    <div class="user">
-      <span id="who"></span>
-      <button class="btn btn-secondary" id="logoutBtn">Đăng xuất</button>
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><svg class="ic"><use href="#i-scan" /></svg></span>
+      <span class="brand-text"><b>Đức Thắng</b><small>Ảnh câu hỏi → File Word</small></span>
+    </div>
+
+    <ol class="steps" aria-label="Các bước">
+      <li data-step="1"><span class="step-dot">1</span><span class="step-label">Thêm ảnh</span></li>
+      <li data-step="2"><span class="step-dot">2</span><span class="step-label">Trích xuất &amp; sửa</span></li>
+      <li data-step="3"><span class="step-dot">3</span><span class="step-label">Xuất file</span></li>
+    </ol>
+
+    <div class="top-actions">
+      <button class="icon-btn" id="historyBtn" type="button" aria-label="Lịch sử làm việc" title="Lịch sử làm việc">
+        <svg class="ic"><use href="#i-history" /></svg>
+      </button>
+      <button class="icon-btn hide-sm" id="shortcutBtn" type="button" aria-label="Phím tắt" title="Phím tắt (?)">
+        <svg class="ic"><use href="#i-keyboard" /></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Đổi giao diện sáng/tối" title="Đổi giao diện sáng/tối">
+        <svg class="ic theme-sun"><use href="#i-sun" /></svg>
+        <svg class="ic theme-moon"><use href="#i-moon" /></svg>
+      </button>
+      <span class="divider" aria-hidden="true"></span>
+      <div class="user-chip">
+        <span class="avatar" id="avatar" aria-hidden="true">?</span>
+        <span class="user-name" id="who"></span>
+      </div>
+      <button class="icon-btn" id="logoutBtn" type="button" aria-label="Đăng xuất" title="Đăng xuất">
+        <svg class="ic"><use href="#i-logout" /></svg>
+      </button>
     </div>
   </header>
 
-  <main class="container">
-    <div class="inputs">
-      <div class="dropzone" id="dropzone">
-        <div class="icon">🖼️</div>
-        <strong>Kéo thả ảnh vào đây hoặc bấm để chọn</strong>
-        <span>Hỗ trợ JPG, PNG, WEBP, BMP, GIF – chọn được nhiều ảnh cùng lúc. Ảnh được xử lý ngay trên máy bạn, không tải lên server</span>
-        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" multiple hidden />
-      </div>
-
-      <div class="pastezone" id="pasteZone">
-        <div class="icon">📋</div>
-        <strong>Dán ảnh đã copy</strong>
-        <button type="button" class="btn" id="pasteBtn">📋 Dán ảnh</button>
-        <div
-          class="paste-target"
-          id="pasteTarget"
-          contenteditable="true"
-          inputmode="none"
-          role="textbox"
-          aria-label="Ô dán ảnh"
-          data-placeholder="hoặc bấm vào đây rồi nhấn Ctrl+V (điện thoại: nhấn giữ → Dán)"
-        ></div>
-        <div class="paste-info" id="pasteInfo" hidden>
-          <span id="pasteCountText"></span>
-          <div class="paste-thumbs" id="pasteThumbs"></div>
+  <main class="shell">
+    <div class="main-col">
+      <!-- Thêm ảnh -->
+      <section class="capture card" id="capture" aria-labelledby="captureTitle">
+        <div class="capture-intro">
+          <h1 id="captureTitle">Biến ảnh câu hỏi thành file Word</h1>
+          <p>Chụp màn hình bài trắc nghiệm, thêm vào đây. Ứng dụng đọc chữ tiếng Việt, đánh số liên tục, bỏ câu trùng và xuất file .docx chỉ gồm câu hỏi và đáp án.</p>
+          <span class="privacy">
+            <svg class="ic"><use href="#i-shield" /></svg>
+            Ảnh được xử lý ngay trên máy bạn, không tải lên máy chủ
+          </span>
         </div>
+
+        <div class="inputs">
+          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-describedby="dropHint">
+            <span class="drop-icon" aria-hidden="true"><svg class="ic"><use href="#i-upload" /></svg></span>
+            <strong>Kéo thả ảnh vào đây hoặc <u>chọn từ máy</u></strong>
+            <span id="dropHint">JPG, PNG, WEBP, BMP, GIF · chọn nhiều ảnh cùng lúc</span>
+            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" multiple hidden />
+          </div>
+
+          <div class="pastezone" id="pasteZone">
+            <button type="button" class="btn btn-soft" id="pasteBtn">
+              <svg class="ic"><use href="#i-clipboard" /></svg> Dán ảnh đã copy
+            </button>
+            <div
+              class="paste-target"
+              id="pasteTarget"
+              contenteditable="true"
+              inputmode="none"
+              role="textbox"
+              aria-label="Ô dán ảnh"
+              data-placeholder="hoặc bấm vào đây rồi nhấn Ctrl+V (điện thoại: nhấn giữ → Dán)"
+            ></div>
+            <div class="paste-info" id="pasteInfo" hidden>
+              <span id="pasteCountText"></span>
+              <div class="paste-thumbs" id="pasteThumbs"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Danh sách ảnh -->
+      <section class="workspace" id="workspace" aria-labelledby="wsTitle" tabindex="-1">
+        <div class="ws-head">
+          <div class="ws-title">
+            <h2 id="wsTitle">Ảnh của bạn</h2>
+            <span class="count-chip" id="countChip">0</span>
+          </div>
+          <div class="ws-actions">
+            <button class="btn btn-ghost" id="findBtn" type="button" disabled title="Tìm và thay thế trong tất cả ảnh (Ctrl+Shift+F)">
+              <svg class="ic"><use href="#i-search" /></svg><span>Tìm &amp; thay</span>
+            </button>
+            <button class="btn btn-ghost btn-danger-text" id="clearBtn" type="button" disabled>
+              <svg class="ic"><use href="#i-trash" /></svg><span>Xoá tất cả</span>
+            </button>
+            <button class="btn btn-primary" id="ocrBtn" type="button" disabled>
+              <svg class="ic"><use href="#i-scan" /></svg><span id="ocrBtnText">Trích xuất chữ</span>
+              <kbd class="hide-sm">Ctrl ↵</kbd>
+            </button>
+          </div>
+        </div>
+
+        <div class="run" id="run" hidden>
+          <div class="run-top">
+            <span class="run-label" id="runLabel"></span>
+            <span class="run-eta" id="runEta"></span>
+          </div>
+          <div class="progress" role="progressbar" aria-label="Tiến độ trích xuất" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress"><div></div></div>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+
+        <div class="list" id="list"></div>
+
+        <div class="empty" id="emptyList">
+          <div class="empty-art" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <p><b>Chưa có ảnh nào.</b> Kéo thả, chọn ảnh hoặc nhấn <span class="keys"><kbd>Ctrl</kbd> + <kbd>V</kbd></span> ở bất kỳ đâu để dán ảnh chụp màn hình.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Kết quả & xuất file -->
+    <aside class="side-col" aria-label="Kết quả và xuất file">
+      <section class="card result" id="qPanel">
+        <div class="card-head">
+          <h2>Kết quả</h2>
+          <span class="live-dot" title="Tự cập nhật khi bạn sửa chữ">Trực tiếp</span>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><span class="kpi-val" id="kpiImages">0</span><span class="kpi-label">Ảnh đã đọc</span></div>
+          <div class="kpi"><span class="kpi-val" id="kpiQuestions">–</span><span class="kpi-label">Câu hỏi</span></div>
+          <div class="kpi"><span class="kpi-val" id="kpiDups">–</span><span class="kpi-label">Câu trùng đã bỏ</span></div>
+        </div>
+
+        <div class="settings">
+          <div class="setting">
+            <label class="switch-row" for="optNumber">
+              <span class="setting-ic" aria-hidden="true"><svg class="ic"><use href="#i-hash" /></svg></span>
+              <span class="setting-text"><b>Đánh số tự động</b><small>Liên tục qua tất cả các ảnh</small></span>
+              <input type="checkbox" class="switch" id="optNumber" checked />
+            </label>
+            <div class="setting-extra">
+              <label for="optFormat">Kiểu số câu</label>
+              <select id="optFormat">
+                <option value="Câu {n}:">Câu 1:</option>
+                <option value="Câu {n}.">Câu 1.</option>
+                <option value="{n}.">1.</option>
+                <option value="Question {n}:">Question 1:</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting">
+            <label class="switch-row" for="optDedupe">
+              <span class="setting-ic" aria-hidden="true"><svg class="ic"><use href="#i-layers" /></svg></span>
+              <span class="setting-text"><b>Lọc câu hỏi trùng</b><small>Bắt cả câu bị đọc sai vài chữ</small></span>
+              <input type="checkbox" class="switch" id="optDedupe" checked />
+            </label>
+            <div class="setting-extra">
+              <label for="optThreshold">Độ giống</label>
+              <input type="range" id="optThreshold" min="70" max="100" step="1" value="90" />
+              <output id="thresholdVal" for="optThreshold">90%</output>
+            </div>
+          </div>
+        </div>
+
+        <details class="how">
+          <summary>Ứng dụng nhận câu hỏi thế nào?</summary>
+          <ul>
+            <li>Câu hỏi bắt đầu bằng “Câu 1”, “Câu hỏi 1”, “Bài 1”, “Question 1” hoặc “1.” ở đầu dòng.</li>
+            <li>Ảnh không có số câu: mỗi câu hỏi kèm các đáp án A/B/C/D bên dưới được tính là một câu.</li>
+            <li>Đáp án bị tràn sang ảnh sau được nối vào câu cuối của ảnh trước. Thứ tự ảnh quyết định thứ tự câu.</li>
+            <li>File Word chỉ gồm các câu hỏi, mỗi câu cách nhau 1 dòng trống, số câu in đậm.</li>
+          </ul>
+        </details>
+
+        <div class="tabs" role="tablist" aria-label="Xem kết quả">
+          <button class="tab" role="tab" id="tabPreview" aria-controls="panePreview" aria-selected="true">Xem trước</button>
+          <button class="tab" role="tab" id="tabDups" aria-controls="paneDups" aria-selected="false" tabindex="-1">
+            Câu trùng <span class="tab-count" id="dupCount">0</span>
+          </button>
+        </div>
+        <div class="pane" role="tabpanel" id="panePreview" aria-labelledby="tabPreview">
+          <div class="paper-wrap">
+            <div class="paper" id="preview"></div>
+          </div>
+        </div>
+        <div class="pane" role="tabpanel" id="paneDups" aria-labelledby="tabDups" hidden>
+          <ul class="dups" id="dupList"></ul>
+        </div>
+      </section>
+
+      <section class="card export" aria-labelledby="exportTitle">
+        <div class="card-head">
+          <h2 id="exportTitle">Xuất file</h2>
+        </div>
+        <div class="field">
+          <label for="docTitle">Tiêu đề đầu trang <small>(không bắt buộc)</small></label>
+          <input id="docTitle" type="text" placeholder="VD: Ôn tập Kinh tế vĩ mô – Chương 3" maxlength="200" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="docFont">Phông chữ</label>
+            <select id="docFont">
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Arial">Arial</option>
+              <option value="Calibri">Calibri</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="docSize">Cỡ chữ</label>
+            <select id="docSize">
+              <option value="12">12</option>
+              <option value="13" selected>13</option>
+              <option value="14">14</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-accent btn-block btn-lg" id="exportBtn" type="button" disabled>
+          <svg class="ic"><use href="#i-file-down" /></svg> Tải file Word
+          <kbd class="hide-sm">Ctrl S</kbd>
+        </button>
+        <div class="btn-pair">
+          <button class="btn btn-outline" id="copyBtn" type="button" disabled>
+            <svg class="ic"><use href="#i-copy" /></svg> Sao chép
+          </button>
+          <button class="btn btn-outline" id="txtBtn" type="button" disabled>
+            <svg class="ic"><use href="#i-file-text" /></svg> Tải .txt
+          </button>
+        </div>
+      </section>
+
+      <section class="card shuffle" aria-labelledby="shuffleTitle">
+        <div class="card-head">
+          <h2 id="shuffleTitle"><svg class="ic"><use href="#i-shuffle" /></svg> Trộn đề</h2>
+          <span class="tag">Cho giáo viên</span>
+        </div>
+        <p class="card-sub">Tạo nhiều mã đề từ cùng bộ câu hỏi: đảo thứ tự câu và đáp án, mỗi mã đề một trang, kèm bảng đối chiếu để làm đáp án.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="mixCount">Số mã đề</label>
+            <input id="mixCount" type="number" min="1" max="12" value="4" inputmode="numeric" />
+          </div>
+          <div class="field">
+            <label for="mixStart">Mã đề đầu tiên</label>
+            <input id="mixStart" type="number" min="1" max="9999" value="101" inputmode="numeric" />
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="mixOptions" checked /> Đảo thứ tự đáp án A, B, C, D</label>
+        <label class="check"><input type="checkbox" id="mixKey" checked /> Kèm bảng đối chiếu với đề gốc</label>
+        <button class="btn btn-outline btn-block" id="mixBtn" type="button" disabled>
+          <svg class="ic"><use href="#i-shuffle" /></svg> Tạo đề trộn (.docx)
+        </button>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Thanh thao tác nhanh trên điện thoại -->
+  <div class="dock" id="dock" hidden>
+    <button class="btn btn-primary" id="dockOcr" type="button"><svg class="ic"><use href="#i-scan" /></svg> Trích xuất</button>
+    <button class="btn btn-accent" id="dockExport" type="button"><svg class="ic"><use href="#i-file-down" /></svg> Tải Word</button>
+  </div>
+
+  <!-- Xem ảnh lớn cạnh chữ đã trích xuất -->
+  <dialog class="modal modal-xl" id="viewer" aria-labelledby="viewerTitle">
+    <div class="modal-head">
+      <h2 id="viewerTitle">Ảnh</h2>
+      <div class="viewer-tools">
+        <button class="icon-btn" id="vZoomOut" type="button" aria-label="Thu nhỏ"><svg class="ic"><use href="#i-zoom-out" /></svg></button>
+        <span class="zoom-val" id="vZoomVal">Vừa khung</span>
+        <button class="icon-btn" id="vZoomIn" type="button" aria-label="Phóng to"><svg class="ic"><use href="#i-zoom-in" /></svg></button>
+        <span class="divider" aria-hidden="true"></span>
+        <button class="icon-btn" id="vPrev" type="button" aria-label="Ảnh trước"><svg class="ic"><use href="#i-left" /></svg></button>
+        <button class="icon-btn" id="vNext" type="button" aria-label="Ảnh sau"><svg class="ic"><use href="#i-right" /></svg></button>
+        <button class="icon-btn" data-close type="button" aria-label="Đóng"><svg class="ic"><use href="#i-x" /></svg></button>
       </div>
     </div>
-
-    <div class="toolbar">
-      <button class="btn" id="ocrBtn" disabled>🔍 Trích xuất chữ</button>
-      <button class="btn btn-success" id="exportBtn" disabled>⬇️ Tải file Word</button>
-      <button class="btn btn-secondary" id="clearBtn" disabled>Xoá tất cả</button>
+    <div class="viewer-body">
+      <div class="viewer-img" id="vImgWrap"><img id="vImg" alt="" /></div>
+      <div class="viewer-text">
+        <label for="vText">Chữ trích xuất <small>– sửa ở đây sẽ cập nhật ngay vào kết quả</small></label>
+        <textarea id="vText" spellcheck="false"></textarea>
+      </div>
     </div>
+  </dialog>
 
-    <div class="progress" id="progress"><div></div></div>
-    <div class="status" id="status"></div>
+  <!-- Tìm & thay thế -->
+  <dialog class="modal" id="findDialog" aria-labelledby="findTitle">
+    <form method="dialog" id="findForm">
+      <div class="modal-head">
+        <h2 id="findTitle">Tìm &amp; thay trong tất cả ảnh</h2>
+        <button class="icon-btn" data-close type="button" aria-label="Đóng"><svg class="ic"><use href="#i-x" /></svg></button>
+      </div>
+      <div class="modal-body">
+        <p class="muted">Sửa một lỗi đọc sai lặp lại ở nhiều ảnh cùng lúc, ví dụ “Cau” → “Câu”.</p>
+        <div class="field">
+          <label for="findText">Tìm</label>
+          <input id="findText" type="text" autocomplete="off" required />
+        </div>
+        <div class="field">
+          <label for="replaceText">Thay bằng</label>
+          <input id="replaceText" type="text" autocomplete="off" />
+        </div>
+        <label class="check"><input type="checkbox" id="findCase" /> Phân biệt chữ hoa, chữ thường</label>
+        <label class="check"><input type="checkbox" id="findWord" /> Chỉ khớp nguyên từ</label>
+        <p class="find-count" id="findCount" aria-live="polite"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close type="button">Huỷ</button>
+        <button class="btn btn-primary" id="replaceAllBtn" type="submit" disabled>Thay tất cả</button>
+      </div>
+    </form>
+  </dialog>
 
-    <div class="list" id="list"></div>
-
-    <section class="panel" id="qPanel" hidden>
-      <h2>Xử lý câu hỏi</h2>
-      <div class="options">
-        <label class="check"><input type="checkbox" id="optNumber" checked /> Đánh số câu hỏi tự động</label>
-        <select id="optFormat" aria-label="Kiểu đánh số">
-          <option value="Câu {n}:">Câu 1:</option>
-          <option value="Câu {n}.">Câu 1.</option>
-          <option value="{n}.">1.</option>
-          <option value="Question {n}:">Question 1:</option>
-        </select>
-        <label class="check"><input type="checkbox" id="optDedupe" checked /> Lọc câu hỏi trùng</label>
-        <label class="check">
-          Độ giống từ
-          <input type="range" id="optThreshold" min="70" max="100" step="1" value="90" />
-          <span id="thresholdVal">90%</span>
-        </label>      </div>
-      <p class="hint">
-        Câu hỏi được nhận theo dạng "Câu 1", "Câu hỏi 1", "Bài 1", "Question 1" hoặc "1." ở đầu dòng.
-        Ảnh không có số câu thì mỗi câu hỏi kèm các đáp án A/B/C/D bên dưới được tính là một câu.
-        Đáp án bị tràn sang ảnh sau sẽ được nối vào câu cuối của ảnh trước. Số câu được đánh liên tục qua tất cả các ảnh.
-        File Word chỉ gồm các câu hỏi, viết liền nhau, mỗi câu cách nhau 1 dòng trống.
+  <!-- Lịch sử -->
+  <dialog class="modal modal-side" id="historyDialog" aria-labelledby="historyTitle">
+    <div class="modal-head">
+      <h2 id="historyTitle">Lịch sử làm việc</h2>
+      <button class="icon-btn" data-close type="button" aria-label="Đóng"><svg class="ic"><use href="#i-x" /></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="note">
+        <svg class="ic"><use href="#i-shield" /></svg>
+        Chỉ lưu phần chữ đã trích xuất, không lưu ảnh. Dữ liệu nằm trên trình duyệt này và không gửi lên máy chủ.
       </p>
+      <ul class="history" id="historyList"></ul>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-danger-text" id="historyClear" type="button">Xoá toàn bộ lịch sử</button>
+    </div>
+  </dialog>
 
-      <div class="stats" id="qStats"></div>
-      <details class="dups" id="dupBox" hidden>
-        <summary id="dupSummary"></summary>
-        <ul id="dupList"></ul>
-      </details>
+  <!-- Phím tắt -->
+  <dialog class="modal" id="shortcutDialog" aria-labelledby="shortcutTitle">
+    <div class="modal-head">
+      <h2 id="shortcutTitle">Phím tắt</h2>
+      <button class="icon-btn" data-close type="button" aria-label="Đóng"><svg class="ic"><use href="#i-x" /></svg></button>
+    </div>
+    <div class="modal-body">
+      <dl class="shortcuts">
+        <div><dt><kbd>Ctrl</kbd> + <kbd>V</kbd></dt><dd>Dán ảnh đã copy</dd></div>
+        <div><dt><kbd>Ctrl</kbd> + <kbd>O</kbd></dt><dd>Chọn ảnh từ máy</dd></div>
+        <div><dt><kbd>Ctrl</kbd> + <kbd>Enter</kbd></dt><dd>Trích xuất chữ</dd></div>
+        <div><dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Tải file Word</dd></div>
+        <div><dt><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></dt><dd>Tìm &amp; thay</dd></div>
+        <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Ảnh trước / sau khi đang xem ảnh lớn</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Mở bảng phím tắt</dd></div>
+      </dl>
+    </div>
+  </dialog>
 
-      <h3>Xem trước nội dung file Word</h3>
-      <div class="preview" id="preview"></div>
-    </section>
-  </main>
+  <!-- Hỏi xác nhận -->
+  <dialog class="modal modal-sm" id="confirmDialog" aria-labelledby="confirmTitle">
+    <form method="dialog">
+      <div class="modal-body">
+        <h2 id="confirmTitle"></h2>
+        <p id="confirmMsg" class="muted"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" value="cancel" type="submit">Huỷ</button>
+        <button class="btn btn-primary" value="ok" type="submit" id="confirmOk">Đồng ý</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx@9.9.0/dist/index.iife.js"></script>
@@ -97,6 +427,8 @@
   <script src="/app/layout.js"></script>
   <script src="/app/ocr.js"></script>
   <script src="/app/questions.js"></script>
+  <script src="/app/shuffle.js"></script>
+  <script src="/app/sessions.js"></script>
   <script src="/app/app.js"></script>
 </body>
 </html>

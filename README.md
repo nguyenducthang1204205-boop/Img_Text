@@ -47,6 +47,25 @@ npm run dev           # mở http://127.0.0.1:8788
    - Ô **Xem trước** cho thấy đúng nội dung sẽ nằm trong file Word.
 4. Bấm **Tải file Word**: file `.docx` chỉ gồm các câu hỏi, viết liền nhau, mỗi câu cách nhau 1 dòng trống, số câu được in đậm.
 
+## Chức năng thêm
+
+- **Sắp xếp ảnh:** kéo tay nắm ⋮⋮ hoặc bấm mũi tên lên/xuống. Thứ tự ảnh quyết định thứ tự câu khi đánh số.
+- **Xoay ảnh 90°:** dùng cho ảnh chụp bị nằm ngang. Ảnh được đọc lại ngay sau khi xoay. Nút **Đọc lại** đọc lại riêng một ảnh.
+- **Xem ảnh lớn:** bấm vào ảnh để xem phóng to cạnh phần chữ và sửa chữ ngay tại đó. Phím ← → để chuyển ảnh.
+- **Tìm & thay** (Ctrl+Shift+F): sửa cùng lúc một lỗi đọc sai lặp lại ở tất cả ảnh, có nút Hoàn tác.
+- **Xuất file:**
+  - thêm tiêu đề đầu trang, chọn phông (Times New Roman, Arial, Calibri) và cỡ chữ;
+  - ngoài file Word còn có thể **Sao chép** hoặc **Tải .txt**;
+  - phần xem trước hiển thị đúng phông, cỡ chữ và số câu in đậm như trong file.
+- **Trộn đề:** tạo nhiều mã đề (VD 101–104) từ cùng bộ câu hỏi, tất cả trong một file Word:
+  - đảo thứ tự câu và đảo đáp án A/B/C/D, mỗi mã đề một trang;
+  - kèm **bảng đối chiếu** để làm đáp án: câu nào lấy từ câu gốc nào, đáp án gốc chuyển sang vị trí nào;
+  - câu không có đủ đáp án A, B, C… liên tiếp (câu Đúng/Sai, câu kéo thả, hoặc đáp án bị đọc sai) thì giữ nguyên thứ tự đáp án.
+- **Lịch sử làm việc:** kết quả tự lưu trên trình duyệt và mở lại được sau khi tải lại trang. Chỉ lưu chữ, không lưu ảnh, không gửi lên máy chủ.
+- **Giao diện sáng/tối.**
+- **Phím tắt** (bấm `?` để xem): Ctrl+V dán ảnh, Ctrl+O chọn ảnh, Ctrl+Enter trích xuất, Ctrl+S tải file Word.
+- Thả ảnh vào bất kỳ đâu trên trang để thêm ảnh.
+
 ## Hạn chế
 
 - Ma trận, công thức hay hình vẽ dạng ảnh trong câu hỏi không đọc được bằng OCR nên bị bỏ. Bạn cần tự bổ sung vào file Word.
@@ -64,6 +83,8 @@ public/               Trang web tĩnh
     layout.js                       Dựng lại văn bản theo bố cục nhiều cột, bỏ dòng rác có độ tin cậy thấp
     image-prep.js                   Làm phẳng nền (bỏ sọc vân khi chụp màn hình), phóng to theo cỡ chữ (Lanczos3), tăng tương phản
     fix-text.js                     Tách âm tiết tiếng Việt bị đọc dính ("lọcnhiễu" → "lọc nhiễu")
+    shuffle.js                      Trộn đề: đảo thứ tự câu và đáp án
+    sessions.js                     Lịch sử làm việc lưu trên trình duyệt (chỉ lưu chữ)
     questions.js                    Dọn chữ thừa, tách câu hỏi, đánh số, lọc câu trùng
 src/index.js          Cloudflare Worker: API đăng nhập (/api/register, login, logout, me),
                       chặn /app/ khi chưa đăng nhập, còn lại trả file tĩnh trong public/
