@@ -53,8 +53,9 @@ npm run dev           # mở http://127.0.0.1:8788
 - **Xoay ảnh 90°:** dùng cho ảnh chụp bị nằm ngang. Ảnh được đọc lại ngay sau khi xoay. Nút **Đọc lại** đọc lại riêng một ảnh.
 - **Xem ảnh lớn:** bấm vào ảnh để xem phóng to cạnh phần chữ và sửa chữ ngay tại đó. Phím ← → để chuyển ảnh.
 - **Ma trận, công thức, hình vẽ trong câu hỏi:**
-  - **Tự động:** ma trận và công thức nhiều dòng (các dòng chỉ gồm số, ký hiệu toán học) được cắt từ ảnh gốc, đặt vào câu hỏi bằng một dòng `[Hình N]`. File Word, đề trộn và phần xem trước hiện đúng ảnh đó, cỡ vừa với chữ.
-  - **Cắt tay:** mở ảnh lớn → bấm **Cắt hình** → kéo khung (chuột hoặc ngón tay) quanh vùng cần lấy, như sơ đồ, đồ thị hoặc chỗ cắt tự động bị thiếu → **Chèn vào câu**. Hình được chèn ngay trên đáp án đầu tiên, hoặc ở dòng đang đặt con trỏ trong ô chữ.
+  - **Tự động:** ma trận (nhận theo cặp ngoặc lớn, kèm nhãn như `S0 =`) và công thức nhiều dòng được cắt từ ảnh gốc, đặt vào câu hỏi bằng một dòng `[Hình N]`. File Word, đề trộn và phần xem trước hiện đúng ảnh đó, cỡ vừa với chữ.
+  - **Đáp án là ma trận** ("A. (ma trận)"): ghi thành `A. [Hình N]`. Trong file Word, chữ "A." đứng cạnh hình, và trộn đề vẫn đảo được các đáp án này.
+  - **Cắt tay:** mở ảnh lớn → bấm **Cắt hình** → kéo khung (chuột hoặc ngón tay) quanh vùng cần lấy, như sơ đồ, đồ thị hoặc chỗ cắt tự động bị thiếu → **Chèn vào câu**. Hình được chèn ngay trên đáp án đầu tiên, hoặc ở dòng đang đặt con trỏ trong ô chữ. Nếu con trỏ đang ở một dòng chỉ có nhãn đáp án ("C."), hình trở thành đáp án đó ("C. [Hình N]").
   - Mỗi ảnh hiện ảnh thu nhỏ các hình đã chèn. Trong cửa sổ ảnh lớn có nút ✕ để bỏ hình chèn sai; xoá dòng `[Hình N]` trong ô chữ cũng có tác dụng như vậy.
 - **Tìm & thay** (Ctrl+Shift+F): sửa cùng lúc một lỗi đọc sai lặp lại ở tất cả ảnh, có nút Hoàn tác.
 - **Xuất file:**

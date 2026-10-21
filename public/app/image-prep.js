@@ -83,18 +83,17 @@
     return gray;
   }
 
-  // ---------- Xoá nút chọn đáp án (vòng tròn / ô vuông rỗng) ----------
-  // Nút tròn "○" trước "A." to hơn chữ và làm Tesseract đọc hỏng cả dòng khi đáp án ngắn
-  // ("○ A. 9" → "(As"). Tìm các khối mực liền nhau dạng vòng/khung rỗng, gần vuông, nét mảnh,
-  // cao gấp đôi chữ thường trở lên, rồi tô trắng cả khung (kể cả chấm/dấu tích bên trong).
-  // Chữ "O", "o", "0" thật nhỏ hơn và nét dày hơn nên được giữ.
+  // ---------- Các khối mực liền nhau (dùng chung cho xoá nút chọn và tìm ma trận) ----------
   const INK = 128;
-  function findMarks(flat, w, h) {
+  // Trả về { label, comps, textH }: label[p] = số khối của điểm p (0 = nền),
+  // comps = [{ id, x0, y0, x1, y1, n, cw, ch }], textH = chiều cao chữ thường (trung vị).
+  // ink: điểm tối hơn mức này là mực (mặc định 128; tìm ngoặc dùng mức nhạt hơn)
+  function components(flat, w, h, ink = INK) {
     const label = new Int32Array(w * h);
     const stack = [];
     const comps = [];
     for (let start = 0; start < flat.length; start++) {
-      if (label[start] || flat[start] >= INK) continue;
+      if (label[start] || flat[start] >= ink) continue;
       const id = comps.length + 1;
       stack.push(start);
       label[start] = id;
@@ -108,7 +107,7 @@
         if (x > x1) x1 = x;
         if (y < y0) y0 = y;
         if (y > y1) y1 = y;
-        // 8 hướng để nét mảnh, chéo của vòng tròn vẫn liền một khối
+        // 8 hướng để nét mảnh, chéo của vòng tròn / ngoặc vẫn liền một khối
         for (let dy = -1; dy <= 1; dy++) {
           const yy = y + dy;
           if (yy < 0 || yy >= h) continue;
@@ -116,7 +115,7 @@
             const xx = x + dx;
             if (xx < 0 || xx >= w) continue;
             const q = yy * w + xx;
-            if (!label[q] && flat[q] < INK) {
+            if (!label[q] && flat[q] < ink) {
               label[q] = id;
               stack.push(q);
             }
@@ -125,12 +124,20 @@
       }
       comps.push({ id, x0, y0, x1, y1, n, cw: x1 - x0 + 1, ch: y1 - y0 + 1 });
     }
-
     // Cỡ chữ thường: trung vị chiều cao các khối cỡ chữ (bỏ dấu, chấm, gạch nhỏ)
     const heights = comps.filter((c) => c.n >= 20 && c.ch >= 8 && c.ch <= h / 20).map((c) => c.ch).sort((a, b) => a - b);
     const textH = heights.length ? heights[heights.length >> 1] : 0;
-    if (!textH) return [];
+    return { label, comps, textH };
+  }
 
+  // ---------- Xoá nút chọn đáp án (vòng tròn / ô vuông rỗng) ----------
+  // Nút tròn "○" trước "A." to hơn chữ và làm Tesseract đọc hỏng cả dòng khi đáp án ngắn
+  // ("○ A. 9" → "(As"). Tìm các khối mực liền nhau dạng vòng/khung rỗng, gần vuông, nét mảnh,
+  // cao gấp đôi chữ thường trở lên, rồi tô trắng cả khung (kể cả chấm/dấu tích bên trong).
+  // Chữ "O", "o", "0" thật nhỏ hơn và nét dày hơn nên được giữ.
+  function findMarks(flat, w, h, cc = components(flat, w, h)) {
+    const { label, comps, textH } = cc;
+    if (!textH) return [];
     return comps.filter((c) => {
       const d = Math.max(c.cw, c.ch);
       if (d < 2 * textH || d > 5 * textH) return false;
@@ -147,8 +154,8 @@
   }
 
   // Tô trắng các nút chọn tìm được (sửa trực tiếp trên ảnh đã làm phẳng). Trả về số nút đã xoá.
-  function eraseMarks(flat, w, h) {
-    const marks = findMarks(flat, w, h);
+  function eraseMarks(flat, w, h, cc) {
+    const marks = findMarks(flat, w, h, cc);
     for (const m of marks) {
       const pad = 2;
       for (let y = Math.max(0, m.y0 - pad); y <= Math.min(h - 1, m.y1 + pad); y++) {
@@ -156,6 +163,82 @@
       }
     }
     return marks.length;
+  }
+
+  // ---------- Tìm ma trận theo cặp ngoặc lớn ----------
+  // Ngoặc ma trận là nét cong, mảnh, cao gấp 2,5 lần chữ trở lên. Ghép ngoặc mở "(" với ngoặc đóng ")"
+  // gần nhất bên phải có cùng tầm cao; vùng giữa hai ngoặc là ma trận. Hai ma trận cạnh nhau
+  // ("I = (…)   Sy = (…)") gộp thành một hình. Cuối cùng nới sang hai bên để lấy nhãn "S0 =".
+  // Nhận theo hình dạng nên không phụ thuộc OCR đọc đúng các số hay khoảng cách giữa các hàng.
+  // Ngoặc của ảnh công thức bị thu nhỏ thường có nét giữa rất mờ (xám ~180) nên tách khối ở mức
+  // mực nhạt (200) để ngoặc vẫn liền một khối. Trả về [{ x0, y0, x1, y1 }] theo toạ độ ảnh flat.
+  const BRACKET_INK = 200;
+  function findMatrices(flat, w, h, cc = components(flat, w, h, BRACKET_INK)) {
+    const { label, comps, textH } = cc;
+    if (!textH) return [];
+    // Ngoặc mở hay đóng: ở khúc giữa, mực nằm sát mép trái khung là "(", sát mép phải là ")"
+    const side = (c) => {
+      let sum = 0;
+      let cnt = 0;
+      for (let y = c.y0 + Math.round(c.ch * 0.35); y <= c.y1 - Math.round(c.ch * 0.35); y++) {
+        for (let x = c.x0; x <= c.x1; x++) {
+          if (label[y * w + x] === c.id) {
+            sum += (x - c.x0) / c.cw;
+            cnt++;
+          }
+        }
+      }
+      return cnt && sum / cnt < 0.5 ? 'L' : 'R';
+    };
+    const brackets = comps
+      .filter(
+        (c) =>
+          c.ch >= 2.5 * textH &&
+          c.ch <= 20 * textH &&
+          c.cw >= Math.max(3, 0.06 * c.ch) && // cong, không phải vạch thẳng (khung, đường kẻ)
+          c.cw <= 0.4 * c.ch &&
+          c.n / (c.cw * c.ch) <= 0.5
+      )
+      .map((c) => ({ ...c, side: side(c) }));
+
+    const used = new Set();
+    let boxes = [];
+    for (const L of brackets.filter((b) => b.side === 'L').sort((a, b) => a.x0 - b.x0)) {
+      let best = null;
+      for (const R of brackets) {
+        if (R.side !== 'R' || used.has(R) || R.x0 <= L.x1 || R.x0 - L.x1 > 20 * textH) continue;
+        const overlap = Math.min(L.y1, R.y1) - Math.max(L.y0, R.y0);
+        if (overlap < 0.6 * Math.max(L.ch, R.ch) || Math.min(L.ch, R.ch) / Math.max(L.ch, R.ch) < 0.7) continue;
+        if (!best || R.x0 < best.x0) best = R;
+      }
+      if (!best) continue;
+      used.add(best);
+      boxes.push({ x0: L.x0, x1: best.x1, y0: Math.min(L.y0, best.y0), y1: Math.max(L.y1, best.y1) });
+    }
+
+    // Nới sang hai bên để lấy nhãn ("S0 =", "I ="), rồi gộp các ma trận cùng hàng đứng gần nhau
+    const pad = Math.round(textH * 0.3);
+    boxes = boxes.map((b) => {
+      const g = growBox(flat, w, h, b, 2 * textH);
+      return { x0: g.x0, x1: g.x1, y0: Math.max(0, b.y0 - pad), y1: Math.min(h - 1, b.y1 + pad) };
+    });
+    boxes.sort((a, b) => a.y0 - b.y0 || a.x0 - b.x0);
+    const merged = [];
+    for (const b of boxes) {
+      const m = merged.find(
+        (o) =>
+          Math.min(o.y1, b.y1) - Math.max(o.y0, b.y0) >= 0.5 * Math.min(o.y1 - o.y0, b.y1 - b.y0) &&
+          b.x0 - o.x1 <= 6 * textH &&
+          o.x0 - b.x1 <= 6 * textH
+      );
+      if (m) {
+        m.x0 = Math.min(m.x0, b.x0);
+        m.x1 = Math.max(m.x1, b.x1);
+        m.y0 = Math.min(m.y0, b.y0);
+        m.y1 = Math.max(m.y1, b.y1);
+      } else merged.push({ ...b });
+    }
+    return merged;
   }
 
   // ---------- Nới khung hình theo nội dung ----------
@@ -285,7 +368,7 @@
     return Math.min(MAX_SCALE, Math.max(1, TARGET_LINE_HEIGHT / low));
   }
 
-  const api = { flatten, render, chooseScale, eraseMarks, findMarks, growBox };
+  const api = { flatten, render, chooseScale, components, findMarks, eraseMarks, findMatrices, growBox };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ImagePrep = api;
 })(typeof window !== 'undefined' ? window : globalThis);

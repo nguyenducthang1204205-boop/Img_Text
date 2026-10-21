@@ -1049,6 +1049,9 @@ button.fig-chip:hover { border-color: var(--primary); color: var(--primary-text)
 .paper-line { white-space: pre-wrap; word-break: break-word; }
 .paper-fig { margin: 4px 0; text-align: center; }
 .paper-fig img { display: inline-block; max-width: 100%; height: auto; }
+.paper-fig.option { display: flex; align-items: center; gap: 0.6em; text-align: left; }
+.paper-fig.option img { max-width: calc(100% - 2em); }
+.paper-fig-label { flex: none; }
 .paper-fig.missing { padding: 4px 8px; border-radius: 4px; background: #fdf3dc; color: #92400e; font: 12px/1.4 var(--font); text-align: left; }
 .paper.is-empty { display: grid; place-items: center; min-height: 220px; }
 .paper-empty { display: grid; justify-items: center; gap: 10px; max-width: 240px; text-align: center; font-family: var(--font); font-size: 13.5px; color: #6b7472; }

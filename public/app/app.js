@@ -29,7 +29,9 @@ let lastText = ''; // nội dung sẽ xuất ra file, tính ở renderPreview
 // N → { blob, url, w, h, docW, itemId, data }. Chỉ nằm trong bộ nhớ trang, không lưu vào lịch sử.
 const figures = new Map();
 let nextFigure = 1;
-const FIG_LINE_RE = /^\s*\[Hình (\d+)\]\s*$/;
+// Dòng hình: "[Hình 3]" (hình riêng một dòng, căn giữa) hoặc "A. [Hình 3]" (đáp án là hình).
+// Nhóm 1 = nhãn đáp án (có thể rỗng), nhóm 2 = số hình
+const FIG_LINE_RE = /^\s*((?:[A-H][.):]\s*)?)\[Hình (\d+)\]\s*$/;
 const FIG_ANY_RE = /\[Hình (\d+)\]/g;
 const DOC_MAX_W = 600; // bề rộng vùng chữ trang A4 trong file Word (điểm ảnh)
 
@@ -715,17 +717,24 @@ function renderPreview() {
   lastText.split('\n').forEach((line) => {
     const fm = FIG_LINE_RE.exec(line);
     if (fm) {
-      const f = figures.get(Number(fm[1]));
+      const label = fm[1].trim();
+      const f = figures.get(Number(fm[2]));
       const box = document.createElement('div');
-      box.className = 'paper-fig' + (f ? '' : ' missing');
+      box.className = 'paper-fig' + (label ? ' option' : '') + (f ? '' : ' missing');
+      if (label) {
+        const l = document.createElement('span');
+        l.className = 'paper-fig-label';
+        l.textContent = label;
+        box.appendChild(l);
+      }
       if (f) {
         const img = new Image();
         img.src = f.url;
-        img.alt = `Hình ${fm[1]}`;
+        img.alt = `Hình ${fm[2]}`;
         img.style.width = `${(f.docW / DOC_MAX_W) * 100}%`;
         box.appendChild(img);
       } else {
-        box.textContent = `[Hình ${fm[1]}] không còn ảnh nên sẽ không có trong file Word`;
+        box.append(`[Hình ${fm[2]}] không còn ảnh nên sẽ không có trong file Word`);
       }
       frag.appendChild(box);
       return;
@@ -864,6 +873,30 @@ async function loadFigureData(text) {
   }
 }
 
+// Bề rộng vùng chữ trang A4 mặc định của docx (lề 1 inch), đơn vị DXA (1/1440 inch)
+const PAGE_DXA = 9026;
+const LABEL_DXA = 560;
+
+function optionFigureTable(label, image, style) {
+  const { Table, TableRow, TableCell, Paragraph, WidthType, BorderStyle, VerticalAlign } = docx;
+  const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+  const borders = { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none };
+  const cell = (children, w) =>
+    new TableCell({
+      width: { size: w, type: WidthType.DXA },
+      verticalAlign: VerticalAlign.CENTER,
+      borders: { top: none, bottom: none, left: none, right: none },
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      children: [new Paragraph({ children })],
+    });
+  return new Table({
+    width: { size: PAGE_DXA, type: WidthType.DXA },
+    columnWidths: [LABEL_DXA, PAGE_DXA - LABEL_DXA],
+    borders,
+    rows: [new TableRow({ children: [cell([textRun(label, style)], LABEL_DXA), cell([image], PAGE_DXA - LABEL_DXA)] })],
+  });
+}
+
 // Mỗi dòng một đoạn văn; số câu ở đầu dòng in đậm; dòng "[Hình N]" thành ảnh (gọi loadFigureData trước)
 function paragraphsOf(text, style, boldNumbers) {
   const { Paragraph, ImageRun, AlignmentType } = docx;
@@ -874,10 +907,15 @@ function paragraphsOf(text, style, boldNumbers) {
     .map((line) => {
       const fm = FIG_LINE_RE.exec(line);
       if (fm) {
-        const f = figures.get(Number(fm[1]));
-        if (!f || !f.data) return null; // hình không còn (mở lại từ lịch sử): bỏ dòng
+        const label = fm[1].trim();
+        const f = figures.get(Number(fm[2]));
+        // Hình không còn (mở lại từ lịch sử): bỏ dòng; đáp án thì giữ nhãn "A."
+        if (!f || !f.data) return label ? new Paragraph({ children: [textRun(label, style)] }) : null;
         const transformation = { width: f.docW, height: Math.round((f.docW * f.h) / f.w) };
-        return new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'png', data: f.data, transformation })] });
+        const image = new ImageRun({ type: 'png', data: f.data, transformation });
+        // Đáp án là hình: bảng 2 ô không viền để "A." nằm giữa theo chiều dọc, cạnh hình
+        if (label) return optionFigureTable(label, image, style);
+        return new Paragraph({ alignment: AlignmentType.CENTER, children: [image] });
       }
       const m = boldNumbers && NUM_RE.exec(line);
       return new Paragraph({ children: m ? [textRun(m[1], style, true), textRun(m[2], style)] : [textRun(line, style)] });
@@ -1260,6 +1298,10 @@ function insertFigureLine(text, token) {
   if (caretSet) {
     const nl = text.indexOf('\n', vText.selectionEnd);
     const pos = nl < 0 ? text.length : nl;
+    const start = text.lastIndexOf('\n', vText.selectionEnd - 1) + 1;
+    // Dòng chỉ có nhãn đáp án ("C."): hình chính là đáp án, chèn trên cùng dòng thành "C. [Hình N]"
+    const label = /^\s*([A-H])\s*[.):]?\s*$/.exec(text.slice(start, pos));
+    if (label) return `${text.slice(0, start)}${label[1]}. ${token}${text.slice(pos)}`;
     return `${text.slice(0, pos)}\n${token}${text.slice(pos)}`;
   }
   const m = /^[ \t]*[A-H]\s*[.):]/m.exec(text);
@@ -1312,7 +1354,12 @@ function renderViewerFigs() {
     del.innerHTML = icon('x');
     del.addEventListener('click', () => {
       const item = viewing;
-      setItemText(item, item.text.replace(new RegExp(`^[ \\t]*\\[Hình ${n}\\][ \\t]*\\n?`, 'm'), '').replace(/\n{3,}/g, '\n\n'));
+      // Bỏ dòng hình riêng; đáp án "A. [Hình n]" thì chỉ bỏ hình, giữ nhãn để gõ lại đáp án
+      const text = item.text
+        .replace(new RegExp(`^[ \\t]*\\[Hình ${n}\\][ \\t]*\\n?`, 'm'), '')
+        .replace(new RegExp(`[ \\t]*\\[Hình ${n}\\]`, 'g'), '')
+        .replace(/\n{3,}/g, '\n\n');
+      setItemText(item, text);
       const fig = figures.get(n);
       if (fig) URL.revokeObjectURL(fig.url);
       figures.delete(n);

@@ -46,9 +46,11 @@
     ctx.drawImage(bmp, 0, 0, w, h);
     bmp.close();
     const flat = ImagePrep.flatten(ctx.getImageData(0, 0, w, h).data, w, h);
+    // Ma trận (cặp ngoặc lớn) ở đề bài và ở đáp án: sẽ được cắt thành hình
+    const matrices = ImagePrep.findMatrices(flat, w, h);
     // Bỏ nút tròn / ô vuông chọn đáp án trước khi đọc (làm hỏng dòng đáp án ngắn như "○ A. 9")
     ImagePrep.eraseMarks(flat, w, h);
-    return { flat, w, h, shrink };
+    return { flat, w, h, shrink, matrices };
   }
 
   // Cắt một vùng (toạ độ điểm ảnh của ảnh gốc) thành ảnh PNG: dùng cho ma trận / hình trong câu hỏi
@@ -100,15 +102,18 @@
       scale >= MIN_RESCALE ? (await worker.recognize(renderCanvas(img, scale), {}, { text: true, blocks: true })).data : first;
     // Dựng lại văn bản theo bố cục (tách cột, bỏ dòng rác); không dựng được thì dùng văn bản gốc.
     // Ma trận / công thức nhiều dòng thành dòng "⟦k⟧" kèm vùng ảnh để cắt.
-    const regions = [];
-    const text = Layout.toText(data.blocks, regions) || data.text;
     // Toạ độ ảnh đưa vào Tesseract → toạ độ ảnh đã làm phẳng → toạ độ ảnh gốc
     const used = scale >= MIN_RESCALE ? scale : 1;
     const k = 1 / (used * img.shrink);
+    // Ma trận tìm theo cặp ngoặc (toạ độ ảnh đã làm phẳng → ảnh đưa vào Tesseract)
+    const regions = img.matrices.map((m) => ({ x0: m.x0 * used, y0: m.y0 * used, x1: m.x1 * used, y1: m.y1 * used, preset: true }));
+    const text = Layout.toText(data.blocks, regions) || data.text;
     const figures = [];
     for (const r of regions) {
       const f = (v) => v / used;
-      const box = ImagePrep.growBox(img.flat, img.w, img.h, { x0: f(r.x0), y0: f(r.y0), x1: f(r.x1), y1: f(r.y1) }, f(r.wordH) * 1.5);
+      let box = { x0: f(r.x0), y0: f(r.y0), x1: f(r.x1), y1: f(r.y1) };
+      // Vùng tìm theo chữ số (công thức không có ngoặc): nới theo nội dung để lấy nhãn, ngoặc
+      if (!r.preset) box = ImagePrep.growBox(img.flat, img.w, img.h, box, f(r.wordH) * 1.5);
       const s = 1 / img.shrink;
       figures.push(await crop(file, { x: box.x0 * s, y: box.y0 * s, w: (box.x1 - box.x0) * s, h: (box.y1 - box.y0) * s }));
     }

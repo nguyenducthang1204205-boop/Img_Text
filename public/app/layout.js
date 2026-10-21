@@ -35,6 +35,7 @@
   // Không tính dòng đáp án ("A. 9"), số trang ("10/15") và giờ ("12:09").
   function isMathLine(t) {
     return (
+      !t.includes('⟦') && // đã là hình
       !/\p{L}{2,}/u.test(t) &&
       /[\d=+\-−×÷^√∑∫]/u.test(t) &&
       !/^\s*[A-Ha-h]\s*[.):,]/u.test(t) &&
@@ -44,25 +45,33 @@
   }
 
   // blocks: data.blocks của Tesseract.js. Trả về văn bản; đoạn/hàng cách nhau bằng dòng trống.
-  // figures (không bắt buộc): mảng nhận các vùng ma trận / công thức nhiều dòng. Mỗi vùng được
-  // thay bằng một dòng "⟦k⟧" trong văn bản (k là vị trí trong mảng) để cắt ảnh chèn vào file Word.
-  // Mỗi vùng: { x0, y0, x1, y1, wordH } theo toạ độ của ảnh đưa vào Tesseract.
+  // figures (không bắt buộc): mảng các vùng hình { x0, y0, x1, y1, wordH } theo toạ độ ảnh đưa vào
+  // Tesseract. Vùng có sẵn khi gọi (ma trận tìm theo cặp ngoặc) được dùng trước: chữ đọc được bên trong
+  // bị bỏ, thay bằng "⟦k⟧" (k là vị trí trong mảng) đúng chỗ đó, nên "A." cùng hàng thành "A. ⟦k⟧".
+  // Hàm còn tự thêm vùng cho công thức nhiều dòng không có ngoặc.
   function toText(blocks, figures) {
+    const presets = figures ? figures.slice() : [];
     const lines = (blocks || [])
       .flatMap((b) => b.paragraphs.flatMap((p) => p.lines))
       .filter((l) => l.confidence >= MIN_LINE_CONFIDENCE && l.words.length);
-    if (!lines.length) return '';
+    if (!lines.length && !presets.length) return '';
 
     const wordH = median(lines.flatMap((l) => l.words.map((w) => w.bbox.y1 - w.bbox.y0))) || 20;
-    const width = Math.max(...lines.map((l) => l.bbox.x1));
+    const width = Math.max(1, ...lines.map((l) => l.bbox.x1));
+    presets.forEach((f) => (f.wordH = f.wordH || wordH));
+    const inPreset = (b) => {
+      const cx = (b.x0 + b.x1) / 2;
+      const cy = (b.y0 + b.y1) / 2;
+      return presets.some((f) => cx >= f.x0 && cx <= f.x1 && cy >= f.y0 && cy <= f.y1);
+    };
 
     // 1. Cắt mỗi dòng thành các đoạn tại khoảng trống lớn
-    const segs = [];
+    const segs = presets.map((f, k) => ({ words: [`⟦${k}⟧`], x0: f.x0, x1: f.x1, y0: f.y0, y1: f.y1, first: true }));
     for (const line of lines) {
       let cur = null;
       for (const w of [...line.words].sort((a, b) => a.bbox.x0 - b.bbox.x0)) {
         const text = w.text.trim();
-        if (!text || isJunkWord(w)) continue;
+        if (!text || isJunkWord(w) || inPreset(w.bbox)) continue;
         if (!cur || w.bbox.x0 - cur.x1 > COLUMN_GAP * wordH) {
           cur = { words: [], x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, first: !cur };
           segs.push(cur);

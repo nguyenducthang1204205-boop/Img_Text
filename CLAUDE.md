@@ -79,10 +79,14 @@ Other browser-only features in `app.js`:
 
 - **Trộn đề:** `shuffle.js` (UMD, testable in Node) reorders the questions. It reorders the options only when the last lines of a question are `A.`, `B.`, … in sequence. The .docx has one section per version, plus an optional mapping table.
 - **Hình (figures):** matrices and multi-line formulas are inserted as cropped images.
-  - **Detection:** `Layout.toText(blocks, figures)` marks a band whose lines are all `isMathLine` (no 2+ letter word; has a digit or math symbol; not an option, pager or clock) and that has at least 2 lines. It also marks a run of at least 2 such lines inside one column. Each marked region becomes a line `⟦k⟧`.
-  - **Cropping:** `ocr.js` grows each box sideways over ink with `ImagePrep.growBox`, which catches the `I =` labels and brackets. It then crops from the original file with `OCR.crop` and returns `{ text, figures, textH }`.
+  - **Detection, by shape (primary):** `ImagePrep.findMatrices` runs connected components at a faint ink threshold (200), because bracket strokes of downscaled formula images are grey (~180).
+    - Brackets are tall (≥ 2.5× text height), curved and thin components. An opening one has its middle ink near the left edge.
+    - Each `(` is paired with the nearest `)` to its right of similar height. Each box is grown sideways with `growBox` to take labels such as `S0 =`. Boxes on the same row are merged.
+    - Shape-based detection was needed because the rows of option matrices are spaced wider than `BAND_GAP`, and labels sit in the middle row. Both broke text-based detection.
+  - **Detection, by text (fallback):** `Layout.toText(blocks, figures)` takes the preset regions first. It drops the OCR words inside them and inserts a `⟦k⟧` pseudo-segment, so an option letter on the same row becomes `A. ⟦k⟧`. It then still marks multi-line `isMathLine` runs (no 2+ letter word; has a digit or math symbol; not an option, pager or clock) without brackets.
+  - **Cropping:** `ocr.js` grows the text-detected boxes with `growBox` too, crops from the original file with `OCR.crop`, and returns `{ text, figures, textH }`.
   - **Placeholders:** `app.js` replaces `⟦k⟧` with `[Hình N]` and keeps the PNGs in the in-memory `figures` map. `questions.js` treats `FIGURE_RE` lines as part of the current question and ignores them for dedupe.
-  - **Rendering:** the preview and `paragraphsOf` render those lines as images. Call `loadFigureData` first, because docx `ImageRun` needs bytes.
+  - **Rendering:** the preview and `paragraphsOf` render those lines as images. Call `loadFigureData` first, because docx `ImageRun` needs bytes. `FIG_LINE_RE` also matches option lines `A. [Hình N]`. In the docx these become a borderless 2-cell table (`optionFigureTable`), so the letter is vertically centred beside the image. Shuffling reorders them like any other option.
   - **Manual crop:** "Cắt hình" in the viewer uses the same `OCR.crop` and `addFigure`.
   - **History:** figures are never saved, so restored placeholders are shown as missing and skipped on export.
 - **Lịch sử:** `sessions.js` keeps up to 30 sessions per user in `localStorage` (`dt-history:<username>`). It stores text only, never images. Restored items have `file: null`, so rotate and re-OCR are disabled for them. Don't name a global `History`, because that shadows the browser's built-in.

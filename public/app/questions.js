@@ -112,8 +112,9 @@
     let lead = 0;
     while (lead < tokens.length - 1 && RADIO_TOKEN_RE.test(tokens[lead]) && !optionLetter(tokens[lead])) lead++;
     if (lead > 0 && optionLetter(tokens[lead])) tokens.splice(0, lead);
-    // Chữ cái đáp án bị đọc thành chữ thường ("c Dễ định lượng..."): chỉ nhận khi đúng thứ tự sau đáp án trên
-    if (/^[a-h]$/.test(tokens[0]) && prevLetter && tokens[0].toUpperCase() === nextLetter(prevLetter)) {
+    // Chữ cái đáp án bị đọc thành chữ thường ("c Dễ định lượng...", "c. [Hình 4]"): chỉ nhận khi đúng
+    // thứ tự sau đáp án trên
+    if (/^[a-h][.):,]?$/.test(tokens[0]) && prevLetter && tokens[0][0].toUpperCase() === nextLetter(prevLetter)) {
       tokens[0] = tokens[0].toUpperCase();
     }
     const first = optionLetter(tokens[0]);
