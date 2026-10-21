@@ -52,6 +52,10 @@ npm run dev           # mở http://127.0.0.1:8788
 - **Sắp xếp ảnh:** kéo tay nắm ⋮⋮ hoặc bấm mũi tên lên/xuống. Thứ tự ảnh quyết định thứ tự câu khi đánh số.
 - **Xoay ảnh 90°:** dùng cho ảnh chụp bị nằm ngang. Ảnh được đọc lại ngay sau khi xoay. Nút **Đọc lại** đọc lại riêng một ảnh.
 - **Xem ảnh lớn:** bấm vào ảnh để xem phóng to cạnh phần chữ và sửa chữ ngay tại đó. Phím ← → để chuyển ảnh.
+- **Ma trận, công thức, hình vẽ trong câu hỏi:**
+  - **Tự động:** ma trận và công thức nhiều dòng (các dòng chỉ gồm số, ký hiệu toán học) được cắt từ ảnh gốc, đặt vào câu hỏi bằng một dòng `[Hình N]`. File Word, đề trộn và phần xem trước hiện đúng ảnh đó, cỡ vừa với chữ.
+  - **Cắt tay:** mở ảnh lớn → bấm **Cắt hình** → kéo khung (chuột hoặc ngón tay) quanh vùng cần lấy, như sơ đồ, đồ thị hoặc chỗ cắt tự động bị thiếu → **Chèn vào câu**. Hình được chèn ngay trên đáp án đầu tiên, hoặc ở dòng đang đặt con trỏ trong ô chữ.
+  - Mỗi ảnh hiện ảnh thu nhỏ các hình đã chèn. Trong cửa sổ ảnh lớn có nút ✕ để bỏ hình chèn sai; xoá dòng `[Hình N]` trong ô chữ cũng có tác dụng như vậy.
 - **Tìm & thay** (Ctrl+Shift+F): sửa cùng lúc một lỗi đọc sai lặp lại ở tất cả ảnh, có nút Hoàn tác.
 - **Xuất file:**
   - thêm tiêu đề đầu trang, chọn phông (Times New Roman, Arial, Calibri) và cỡ chữ;
@@ -61,14 +65,14 @@ npm run dev           # mở http://127.0.0.1:8788
   - đảo thứ tự câu và đảo đáp án A/B/C/D, mỗi mã đề một trang;
   - kèm **bảng đối chiếu** để làm đáp án: câu nào lấy từ câu gốc nào, đáp án gốc chuyển sang vị trí nào;
   - câu không có đủ đáp án A, B, C… liên tiếp (câu Đúng/Sai, câu kéo thả, hoặc đáp án bị đọc sai) thì giữ nguyên thứ tự đáp án.
-- **Lịch sử làm việc:** kết quả tự lưu trên trình duyệt và mở lại được sau khi tải lại trang. Chỉ lưu chữ, không lưu ảnh, không gửi lên máy chủ.
+- **Lịch sử làm việc:** kết quả tự lưu trên trình duyệt và mở lại được sau khi tải lại trang. Chỉ lưu chữ, không lưu ảnh (kể cả hình cắt), không gửi lên máy chủ. Vì vậy phiên mở lại từ lịch sử không còn các hình `[Hình N]`, và file Word xuất ra sẽ không có các hình đó.
 - **Giao diện sáng/tối.**
 - **Phím tắt** (bấm `?` để xem): Ctrl+V dán ảnh, Ctrl+O chọn ảnh, Ctrl+Enter trích xuất, Ctrl+S tải file Word.
 - Thả ảnh vào bất kỳ đâu trên trang để thêm ảnh.
 
 ## Hạn chế
 
-- Ma trận, công thức hay hình vẽ dạng ảnh trong câu hỏi không đọc được bằng OCR nên bị bỏ. Bạn cần tự bổ sung vào file Word.
+- Ma trận, công thức, hình vẽ được chèn vào file Word dưới dạng **ảnh**, không phải chữ, nên không sửa được số trong Word. Sơ đồ, đồ thị không có chữ số thì không tự cắt được, hãy dùng **Cắt hình**.
 - Điện thoại cấu hình yếu sẽ đọc mỗi ảnh chậm hơn máy tính vài giây.
 - Ảnh chụp màn hình bằng điện thoại (có sọc vân) được làm phẳng nền trước khi đọc, nhưng vẫn có thể sai vài dấu câu; hãy xem lại phần xem trước.
 

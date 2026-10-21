@@ -868,7 +868,30 @@ body.dropping::after {
 }
 @keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(240%); } }
 
-.item-body { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; min-width: 0; }
+.item-body { display: grid; grid-template-rows: auto 1fr auto auto; gap: 10px; min-width: 0; }
+
+/* Hình (ma trận, công thức, hình vẽ) chèn vào câu */
+.item-figs, .viewer-figs { display: flex; flex-wrap: wrap; gap: 6px; }
+.fig-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 3px 8px 3px 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+button.fig-chip { cursor: pointer; transition: border-color 0.15s; }
+button.fig-chip:hover { border-color: var(--primary); color: var(--primary-text); }
+.fig-chip img { height: 30px; max-width: 90px; object-fit: contain; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.fig-chip.missing { padding-left: 8px; border-style: dashed; background: var(--warning-soft); color: var(--warning); }
+.fig-del { display: grid; place-items: center; width: 24px; height: 24px; margin-left: 2px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-3); }
+.fig-del:hover { background: var(--danger-soft); color: var(--danger); }
+.fig-del .ic { width: 14px; height: 14px; }
 .item-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .grip { display: grid; place-items: center; width: 22px; height: 32px; margin-left: -4px; color: var(--text-3); cursor: grab; touch-action: none; }
 .grip:active { cursor: grabbing; }
@@ -1024,6 +1047,9 @@ body.dropping::after {
 }
 .paper-title { margin-bottom: 1.2em; text-align: center; font-weight: 700; font-size: 1.12em; }
 .paper-line { white-space: pre-wrap; word-break: break-word; }
+.paper-fig { margin: 4px 0; text-align: center; }
+.paper-fig img { display: inline-block; max-width: 100%; height: auto; }
+.paper-fig.missing { padding: 4px 8px; border-radius: 4px; background: #fdf3dc; color: #92400e; font: 12px/1.4 var(--font); text-align: left; }
 .paper.is-empty { display: grid; place-items: center; min-height: 220px; }
 .paper-empty { display: grid; justify-items: center; gap: 10px; max-width: 240px; text-align: center; font-family: var(--font); font-size: 13.5px; color: #6b7472; }
 .paper-empty .ic { width: 28px; height: 28px; color: #a3aba9; }
@@ -1101,6 +1127,34 @@ body.dropping::after {
   outline: none;
 }
 .viewer-text textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--ring); }
+.viewer-tip { font-size: 12.5px; color: var(--text-3); }
+.viewer-tip b { color: var(--text-2); }
+
+/* Cắt hình bằng tay */
+.viewer-left { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.viewer-left .viewer-img { position: relative; flex: 1 1 0; min-height: 0; }
+/* "Vừa khung": ô lưới bằng đúng khung để ảnh co lại vừa cả chiều cao */
+.viewer-left .viewer-img:not(.zoomed) { grid-template-rows: minmax(0, 100%); grid-template-columns: minmax(0, 100%); }
+.crop-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--primary-soft);
+}
+.crop-hint { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: var(--primary-text); font-size: 13px; font-weight: 600; }
+.viewer-img.cropping img { cursor: crosshair; touch-action: none; user-select: none; }
+.crop-box {
+  position: absolute;
+  border: 2px solid var(--primary);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+#vCropBtn[aria-pressed='true'] { background: var(--primary); color: var(--on-primary); }
+#vCropBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* Ngăn lịch sử trượt từ bên phải */
 .modal-side {
@@ -1222,7 +1276,7 @@ body.dropping::after {
   .viewer-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   .viewer-text { border-left: 0; border-top: 1px solid var(--border); }
   .modal-xl { width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; }
-  .zoom-val, #vZoomOut, #vZoomIn { display: none; }
+  .zoom-val, #vPrev, #vNext { display: none; }
   .toasts { left: 16px; right: 16px; width: auto; transform: none; }
 }
 

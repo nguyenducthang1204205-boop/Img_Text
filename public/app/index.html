@@ -51,6 +51,7 @@
       <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
       <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></symbol>
       <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/></symbol>
+      <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></symbol>
       <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
     </defs>
   </svg>
@@ -225,6 +226,7 @@
             <li>Câu hỏi bắt đầu bằng “Câu 1”, “Câu hỏi 1”, “Bài 1”, “Question 1” hoặc “1.” ở đầu dòng.</li>
             <li>Ảnh không có số câu: mỗi câu hỏi kèm các đáp án A/B/C/D bên dưới được tính là một câu.</li>
             <li>Đáp án bị tràn sang ảnh sau được nối vào câu cuối của ảnh trước. Thứ tự ảnh quyết định thứ tự câu.</li>
+            <li>Ma trận, công thức nhiều dòng được cắt từ ảnh gốc và chèn vào câu dưới dạng hình (dòng “[Hình N]”). Hình khác (sơ đồ, đồ thị…): mở ảnh lớn, bấm “Cắt hình”.</li>
             <li>File Word chỉ gồm các câu hỏi, mỗi câu cách nhau 1 dòng trống, số câu in đậm.</li>
           </ul>
         </details>
@@ -321,6 +323,10 @@
     <div class="modal-head">
       <h2 id="viewerTitle">Ảnh</h2>
       <div class="viewer-tools">
+        <button class="btn btn-soft btn-sm" id="vCropBtn" type="button" aria-pressed="false" title="Kéo khung quanh ma trận, công thức hoặc hình vẽ để chèn vào câu hỏi">
+          <svg class="ic"><use href="#i-crop" /></svg><span>Cắt hình</span>
+        </button>
+        <span class="divider" aria-hidden="true"></span>
         <button class="icon-btn" id="vZoomOut" type="button" aria-label="Thu nhỏ"><svg class="ic"><use href="#i-zoom-out" /></svg></button>
         <span class="zoom-val" id="vZoomVal">Vừa khung</span>
         <button class="icon-btn" id="vZoomIn" type="button" aria-label="Phóng to"><svg class="ic"><use href="#i-zoom-in" /></svg></button>
@@ -331,10 +337,22 @@
       </div>
     </div>
     <div class="viewer-body">
-      <div class="viewer-img" id="vImgWrap"><img id="vImg" alt="" /></div>
+      <div class="viewer-left">
+        <div class="crop-bar" id="vCropBar" hidden>
+          <span class="crop-hint"><svg class="ic"><use href="#i-crop" /></svg> Kéo chuột (hoặc ngón tay) quanh ma trận / hình cần chèn</span>
+          <button class="btn btn-ghost btn-sm" id="vCropCancel" type="button">Huỷ</button>
+          <button class="btn btn-primary btn-sm" id="vCropInsert" type="button" disabled>Chèn vào câu</button>
+        </div>
+        <div class="viewer-img" id="vImgWrap">
+          <img id="vImg" alt="" draggable="false" />
+          <div class="crop-box" id="vCropBox" hidden></div>
+        </div>
+      </div>
       <div class="viewer-text">
         <label for="vText">Chữ trích xuất <small>– sửa ở đây sẽ cập nhật ngay vào kết quả</small></label>
         <textarea id="vText" spellcheck="false"></textarea>
+        <div class="viewer-figs" id="vFigs" hidden></div>
+        <p class="viewer-tip">Dòng <b>[Hình N]</b> sẽ thành ảnh trong file Word. Muốn đặt hình ở chỗ khác: bấm vào ô chữ tại dòng cần chèn rồi mới cắt hình.</p>
       </div>
     </div>
   </dialog>

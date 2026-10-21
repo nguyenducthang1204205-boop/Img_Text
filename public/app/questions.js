@@ -15,6 +15,9 @@
   const JUNK_LABEL_RE = /^\s*(?=[^\s:]*\d)(?=[^\s:]*[^\d\s:])[^\s:]{2,8}\s*:\s+(?=\S)/u;
 
   const isOption = (line) => OPTION_RE.test(line);
+  // Dòng chèn hình (ma trận, công thức, hình vẽ cắt từ ảnh): "[Hình 3]". Luôn thuộc câu hỏi đang xét
+  const FIGURE_RE = /^\s*\[Hình \d+\]\s*$/u;
+  const FIGURE_ANY_RE = /\[Hình \d+\]/gu;
 
   // Câu trả lời ngắn có nghĩa, không được coi là rác
   const SHORT_ANSWER_RE = /^(?:đúng|sai|true|false|có|không|yes|no)$/iu;
@@ -144,6 +147,10 @@
     const out = [];
     let prevLetter = null;
     for (let line of lines) {
+      if (FIGURE_RE.test(line)) {
+        out.push(line.trim());
+        continue;
+      }
       line = line.replace(RADIO_RE, '');
       // "B." hay bị đọc thành "8."
       if (prevLetter === 'A' && /^\s*8\s*[.):]/.test(line)) line = line.replace(/^(\s*)8/, '$1B');
@@ -194,7 +201,7 @@
       } else if (hasOptions) {
         // Không có số câu nhưng có đáp án A/B/C/D: câu mới là dòng không phải đáp án
         // xuất hiện sau nhóm đáp án của câu trước
-        const plain = !isOption(line) && !FOLLOW_RE.test(line);
+        const plain = !isOption(line) && !FOLLOW_RE.test(line) && !FIGURE_RE.test(line);
         if (plain && current && !current.hasOption && prevBlank) {
           // Đoạn chữ phía trên chưa có đáp án mà đã cách một dòng trống:
           // kết thúc bằng "?" thì là câu hỏi không có đáp án, giữ lại;
@@ -211,7 +218,7 @@
       } else {
         // Không có số câu lẫn đáp án: mỗi đoạn văn là một câu
         // (trừ câu kéo thả / Đúng-Sai nhiều ý: các đoạn bên dưới thuộc cùng câu)
-        starts = prevBlank && !(current && current.grouped);
+        starts = prevBlank && !(current && current.grouped) && !(current && FIGURE_RE.test(line));
       }
 
       if (starts) {
@@ -238,7 +245,7 @@
 
     return {
       intro: intro.join('\n').trim(),
-      continuation: intro.length > 0 && isOption(intro[0]),
+      continuation: intro.length > 0 && (isOption(intro[0]) || FIGURE_RE.test(intro[0])),
       questions: questions.map((q) => ({ raw: formatBody(q.raw.join('\n')), body: formatBody(q.body.join('\n')) })),
     };
   }
@@ -370,7 +377,8 @@
       }
 
       for (const q of questions) {
-        const norm = normalize(q.body);
+        // So câu trùng không tính dòng hình (mỗi lần chụp lại, hình được đánh số khác)
+        const norm = normalize(q.body.replace(FIGURE_ANY_RE, ' '));
         const nums = numbersOf(norm);
         if (dedupe && norm) {
           let match = null;

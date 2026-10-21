@@ -158,6 +158,38 @@
     return marks.length;
   }
 
+  // ---------- Nới khung hình theo nội dung ----------
+  // Khung ma trận lấy từ vị trí chữ số có thể thiếu nhãn "I =", ngoặc lớn (OCR không đọc thành chữ).
+  // Quét ra hai bên: còn gặp mực thì nới tiếp, gặp khoảng trắng rộng hơn `gap` thì dừng.
+  // Chỉ xét phần giữa khung theo chiều dọc để đường kẻ ngang ở mép trên/dưới không kéo khung dài ra.
+  // box: { x0, y0, x1, y1 } theo toạ độ ảnh gray (w×h). Trả về khung mới.
+  function growBox(gray, w, h, box, gap) {
+    const y0 = Math.max(0, Math.round(box.y0 + (box.y1 - box.y0) * 0.15));
+    const y1 = Math.min(h - 1, Math.round(box.y1 - (box.y1 - box.y0) * 0.15));
+    const hasInk = (x) => {
+      for (let y = y0; y <= y1; y++) if (gray[y * w + x] < INK) return true;
+      return false;
+    };
+    const scan = (from, step) => {
+      let last = from;
+      let white = 0;
+      for (let x = from; x >= 0 && x < w && white <= gap; x += step) {
+        if (hasInk(x)) {
+          last = x;
+          white = 0;
+        } else white++;
+      }
+      return last;
+    };
+    const margin = Math.round(gap / 3);
+    return {
+      x0: Math.max(0, scan(Math.max(0, Math.round(box.x0)), -1) - margin),
+      x1: Math.min(w - 1, scan(Math.min(w - 1, Math.round(box.x1)), 1) + margin),
+      y0: box.y0,
+      y1: box.y1,
+    };
+  }
+
   // ---------- Phóng to / thu nhỏ bằng Lanczos3 ----------
   function lanczos(x) {
     if (x === 0) return 1;
@@ -253,7 +285,7 @@
     return Math.min(MAX_SCALE, Math.max(1, TARGET_LINE_HEIGHT / low));
   }
 
-  const api = { flatten, render, chooseScale, eraseMarks, findMarks };
+  const api = { flatten, render, chooseScale, eraseMarks, findMarks, growBox };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ImagePrep = api;
 })(typeof window !== 'undefined' ? window : globalThis);

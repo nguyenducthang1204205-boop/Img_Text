@@ -25,6 +25,38 @@ let busy = false;
 let nextId = 1;
 let lastText = ''; // nội dung sẽ xuất ra file, tính ở renderPreview
 
+// Hình cắt từ ảnh (ma trận, công thức, hình vẽ), chèn vào câu hỏi bằng một dòng "[Hình N]".
+// N → { blob, url, w, h, docW, itemId, data }. Chỉ nằm trong bộ nhớ trang, không lưu vào lịch sử.
+const figures = new Map();
+let nextFigure = 1;
+const FIG_LINE_RE = /^\s*\[Hình (\d+)\]\s*$/;
+const FIG_ANY_RE = /\[Hình (\d+)\]/g;
+const DOC_MAX_W = 600; // bề rộng vùng chữ trang A4 trong file Word (điểm ảnh)
+
+// Bề rộng hình trong file Word: chữ trong hình cao xấp xỉ cỡ chữ văn bản, không quá bề rộng trang.
+// textH là chiều cao từ Tesseract đo (gồm cả dấu tiếng Việt, cao hơn chữ khoảng 1,3 lần)
+function figureWidth(w, textH) {
+  const k = textH > 0 ? Math.min(1, 14 / textH) : 0.45;
+  return Math.round(Math.max(60, Math.min(DOC_MAX_W, w * k)));
+}
+
+function addFigure(item, f, textH) {
+  const n = nextFigure++;
+  figures.set(n, { ...f, url: URL.createObjectURL(f.blob), itemId: item.id, docW: figureWidth(f.w, textH) });
+  return `[Hình ${n}]`;
+}
+
+function dropFigures(item) {
+  for (const [n, f] of figures) {
+    if (f.itemId !== item.id) continue;
+    URL.revokeObjectURL(f.url);
+    figures.delete(n);
+  }
+}
+
+// Số các hình được nhắc tới trong một đoạn chữ, theo thứ tự
+const figureNumbers = (text) => [...text.matchAll(FIG_ANY_RE)].map((m) => Number(m[1]));
+
 const STATE_LABEL = { pending: 'Chờ đọc', working: 'Đang đọc…', done: 'Đã đọc', error: 'Lỗi' };
 // Số câu ở đầu dòng được in đậm: "Câu 1:", "Question 2:", "3."
 const NUM_RE = /^((?:Câu|Question)\s+\d+[:.]|\d+\.)(\s.*|)$/;
@@ -324,6 +356,7 @@ function renderItem(item) {
         </div>
       </div>
       <textarea spellcheck="false" aria-label="Chữ trích xuất từ ảnh" placeholder="Chữ trích xuất từ ảnh sẽ hiện ở đây. Bạn có thể sửa trước khi tải file."></textarea>
+      <div class="item-figs" hidden></div>
       <div class="item-foot"><span class="words"></span><span class="err"></span></div>
     </div>`;
   if (item.url) el.querySelector('img').src = item.url;
@@ -365,6 +398,34 @@ function updateItem(item, el = item.el) {
   el.querySelector('.thumb').disabled = !item.url;
   el.querySelector('textarea').readOnly = item.state === 'working';
   updateWords(item, el);
+  renderItemFigs(item, el);
+}
+
+// Ảnh thu nhỏ các hình đang chèn trong chữ của ảnh này (bấm để mở ảnh lớn, sửa / cắt lại)
+function renderItemFigs(item, el = item.el) {
+  const nums = figureNumbers(item.text);
+  const key = nums.map((n) => n + (figures.has(n) ? '' : 'x')).join();
+  const box = el.querySelector('.item-figs');
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.innerHTML = '';
+  box.hidden = nums.length === 0;
+  nums.forEach((n) => {
+    const f = figures.get(n);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'fig-chip' + (f ? '' : ' missing');
+    b.dataset.act = 'view';
+    b.title = f ? `Hình ${n} sẽ được chèn vào file Word – bấm để xem / cắt lại` : `Hình ${n}: không còn ảnh (phiên mở lại từ lịch sử không lưu ảnh)`;
+    if (f) {
+      const img = new Image();
+      img.src = f.url;
+      img.alt = '';
+      b.appendChild(img);
+    }
+    b.append(`Hình ${n}`);
+    box.appendChild(b);
+  });
 }
 
 // Số thứ tự hiển thị và nút lên/xuống theo vị trí hiện tại
@@ -498,13 +559,18 @@ function removeItem(item) {
       },
     },
     onClose: (undone) => {
-      if (!undone && item.url) URL.revokeObjectURL(item.url);
+      if (undone) return;
+      if (item.url) URL.revokeObjectURL(item.url);
+      dropFigures(item);
     },
   });
 }
 
 function clearItems() {
   items.forEach((i) => i.url && URL.revokeObjectURL(i.url));
+  figures.forEach((f) => URL.revokeObjectURL(f.url));
+  figures.clear();
+  nextFigure = 1;
   items = [];
   list.innerHTML = '';
   sessionId = null;
@@ -647,6 +713,23 @@ function renderPreview() {
     frag.appendChild(h);
   }
   lastText.split('\n').forEach((line) => {
+    const fm = FIG_LINE_RE.exec(line);
+    if (fm) {
+      const f = figures.get(Number(fm[1]));
+      const box = document.createElement('div');
+      box.className = 'paper-fig' + (f ? '' : ' missing');
+      if (f) {
+        const img = new Image();
+        img.src = f.url;
+        img.alt = `Hình ${fm[1]}`;
+        img.style.width = `${(f.docW / DOC_MAX_W) * 100}%`;
+        box.appendChild(img);
+      } else {
+        box.textContent = `[Hình ${fm[1]}] không còn ảnh nên sẽ không có trong file Word`;
+      }
+      frag.appendChild(box);
+      return;
+    }
     const p = document.createElement('div');
     p.className = 'paper-line';
     const m = optNumber.checked && NUM_RE.exec(line);
@@ -724,7 +807,11 @@ async function runOcr(queue) {
     updateItem(item);
     setStatus('');
     try {
-      const text = await OCR.recognize(item.file);
+      const res = await OCR.recognize(item.file);
+      // Ma trận / công thức nhiều dòng: cắt thành hình, thay dòng "⟦k⟧" bằng "[Hình N]"
+      dropFigures(item);
+      item.textH = res.textH;
+      const text = res.text.replace(/⟦(\d+)⟧/g, (_, k) => (res.figures[k] ? addFigure(item, res.figures[k], res.textH) : ''));
       item.text = text;
       item.el.querySelector('textarea').value = text;
       fitTextarea(item.el.querySelector('textarea'));
@@ -769,15 +856,33 @@ function textRun(t, { font, size }, bold = false, extra = 0) {
   return new docx.TextRun({ text: t, bold, font, size: (size + extra) * 2 });
 }
 
-// Mỗi dòng một đoạn văn; số câu ở đầu dòng in đậm
+// Đọc sẵn dữ liệu các hình được nhắc tới (docx cần dữ liệu ảnh dạng mảng byte)
+async function loadFigureData(text) {
+  for (const n of figureNumbers(text)) {
+    const f = figures.get(n);
+    if (f && !f.data) f.data = new Uint8Array(await f.blob.arrayBuffer());
+  }
+}
+
+// Mỗi dòng một đoạn văn; số câu ở đầu dòng in đậm; dòng "[Hình N]" thành ảnh (gọi loadFigureData trước)
 function paragraphsOf(text, style, boldNumbers) {
-  const { Paragraph } = docx;
+  const { Paragraph, ImageRun, AlignmentType } = docx;
   // Các câu hỏi viết liền nhau, mỗi câu cách nhau đúng 1 dòng trống
   const clean = text.replace(/\r\n?/g, '\n').replace(/\n(?:[ \t]*\n)+/g, '\n\n').trim();
-  return clean.split('\n').map((line) => {
-    const m = boldNumbers && NUM_RE.exec(line);
-    return new Paragraph({ children: m ? [textRun(m[1], style, true), textRun(m[2], style)] : [textRun(line, style)] });
-  });
+  return clean
+    .split('\n')
+    .map((line) => {
+      const fm = FIG_LINE_RE.exec(line);
+      if (fm) {
+        const f = figures.get(Number(fm[1]));
+        if (!f || !f.data) return null; // hình không còn (mở lại từ lịch sử): bỏ dòng
+        const transformation = { width: f.docW, height: Math.round((f.docW * f.h) / f.w) };
+        return new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'png', data: f.data, transformation })] });
+      }
+      const m = boldNumbers && NUM_RE.exec(line);
+      return new Paragraph({ children: m ? [textRun(m[1], style, true), textRun(m[2], style)] : [textRun(line, style)] });
+    })
+    .filter(Boolean);
 }
 
 function headingParagraphs(lines, style) {
@@ -831,6 +936,7 @@ exportBtn.addEventListener('click', () => {
   const text = finalText(result);
   if (!text) return toast('Không có nội dung để xuất.', { type: 'error' });
   withBusy('Đang tạo file Word…', async () => {
+    await loadFigureData(text);
     const style = docStyle();
     const children = headingParagraphs([docTitle.value.trim()], style).concat(paragraphsOf(text, style, optNumber.checked));
     download(await makeDoc([{ children }]), `van-ban-tu-anh-${stamp()}.docx`);
@@ -888,6 +994,7 @@ mixBtn.addEventListener('click', () => {
 
   withBusy('Đang tạo đề trộn…', async () => {
     const { Paragraph, Table, TableRow, TableCell, WidthType } = docx;
+    await loadFigureData(result.questions.join('\n'));
     const style = docStyle();
     const title = docTitle.value.trim();
     const versions = Shuffle.makeVersions(result.questions, { versions: count, startCode: start, shuffleOptions, format });
@@ -990,22 +1097,31 @@ function setItemText(item, text) {
   item.el.querySelector('textarea').value = text;
   fitTextarea(item.el.querySelector('textarea'));
   updateWords(item);
-  if (viewing === item) $('vText').value = text;
+  renderItemFigs(item);
+  if (viewing === item) {
+    $('vText').value = text;
+    renderViewerFigs();
+  }
 }
 
-// ---------- Xem ảnh lớn cạnh chữ ----------
+// ---------- Xem ảnh lớn cạnh chữ, cắt hình chèn vào câu ----------
 const viewer = $('viewer');
 const vImg = $('vImg');
 const vText = $('vText');
+const vWrap = $('vImgWrap');
+const cropBox = $('vCropBox');
 const ZOOMS = [0, 1, 1.5, 2, 3]; // 0 = vừa khung
 let viewing = null;
 let zoomIdx = 0;
+let caretSet = false; // người dùng đã đặt con trỏ trong ô chữ (chèn hình vào đúng chỗ đó)
 
 const viewable = () => items.filter((i) => i.url);
 
 function openViewer(item) {
+  if (!item.url) return;
   viewing = item;
   zoomIdx = 0;
+  caretSet = false;
   const all = viewable();
   const k = all.indexOf(item);
   $('viewerTitle').textContent = `Ảnh ${items.indexOf(item) + 1}/${items.length} · ${item.name}`;
@@ -1015,17 +1131,21 @@ function openViewer(item) {
   vText.readOnly = item.state === 'working';
   $('vPrev').disabled = k <= 0;
   $('vNext').disabled = k >= all.length - 1;
+  $('vCropBtn').disabled = !item.file || item.state === 'working';
+  setCropMode(false);
   applyZoom();
+  renderViewerFigs();
   if (!viewer.open) viewer.showModal();
 }
 
 function applyZoom() {
   const z = ZOOMS[zoomIdx];
-  $('vImgWrap').classList.toggle('zoomed', z > 0);
+  vWrap.classList.toggle('zoomed', z > 0);
   vImg.style.width = z ? `${vImg.naturalWidth * z}px` : '';
   $('vZoomVal').textContent = z ? `${Math.round(z * 100)}%` : 'Vừa khung';
   $('vZoomOut').disabled = zoomIdx === 0;
   $('vZoomIn').disabled = zoomIdx === ZOOMS.length - 1;
+  clearCropBox(); // khung đang kéo không còn khớp khi đổi cỡ ảnh
 }
 vImg.addEventListener('load', applyZoom);
 $('vZoomIn').addEventListener('click', () => {
@@ -1037,6 +1157,7 @@ $('vZoomOut').addEventListener('click', () => {
   applyZoom();
 });
 vImg.addEventListener('click', () => {
+  if (cropMode) return;
   zoomIdx = zoomIdx ? 0 : 2;
   applyZoom();
 });
@@ -1053,15 +1174,155 @@ viewer.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') stepViewer(-1);
   else if (e.key === 'ArrowRight') stepViewer(1);
 });
-viewer.addEventListener('close', () => (viewing = null));
+viewer.addEventListener('close', () => {
+  setCropMode(false);
+  viewing = null;
+});
 vText.addEventListener('input', () => {
   if (!viewing) return;
   viewing.text = vText.value;
   viewing.el.querySelector('textarea').value = vText.value;
   fitTextarea(viewing.el.querySelector('textarea'));
   updateWords(viewing);
+  renderViewerFigs();
   schedulePreview();
 });
+['pointerup', 'keyup'].forEach((ev) => vText.addEventListener(ev, () => (caretSet = true)));
+
+// Cắt hình bằng tay: bật "Cắt hình", kéo khung quanh ma trận / hình vẽ, bấm "Chèn vào câu"
+let cropMode = false;
+let cropStart = null;
+let cropRect = null; // theo điểm ảnh hiển thị, gốc là góc trên trái của ảnh
+
+function clearCropBox() {
+  cropRect = null;
+  cropStart = null;
+  cropBox.hidden = true;
+  $('vCropInsert').disabled = true;
+}
+
+function setCropMode(on) {
+  cropMode = Boolean(on && viewing && viewing.file);
+  vWrap.classList.toggle('cropping', cropMode);
+  $('vCropBtn').setAttribute('aria-pressed', cropMode);
+  $('vCropBar').hidden = !cropMode;
+  clearCropBox();
+}
+$('vCropBtn').addEventListener('click', () => setCropMode(!cropMode));
+$('vCropCancel').addEventListener('click', () => setCropMode(false));
+
+function imagePoint(e) {
+  const r = vImg.getBoundingClientRect();
+  return { x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)) };
+}
+
+function drawCropBox() {
+  // Khung nằm trong vùng cuộn của ảnh nên cuộn theo ảnh
+  const wr = vWrap.getBoundingClientRect();
+  const ir = vImg.getBoundingClientRect();
+  cropBox.style.left = `${ir.left - wr.left + vWrap.scrollLeft + cropRect.x}px`;
+  cropBox.style.top = `${ir.top - wr.top + vWrap.scrollTop + cropRect.y}px`;
+  cropBox.style.width = `${cropRect.w}px`;
+  cropBox.style.height = `${cropRect.h}px`;
+  cropBox.hidden = false;
+}
+
+vImg.addEventListener('pointerdown', (e) => {
+  if (!cropMode) return;
+  e.preventDefault();
+  vImg.setPointerCapture(e.pointerId);
+  cropStart = imagePoint(e);
+  cropRect = { ...cropStart, w: 0, h: 0 };
+  drawCropBox();
+});
+vImg.addEventListener('pointermove', (e) => {
+  if (!cropMode || !cropStart) return;
+  const p = imagePoint(e);
+  cropRect = {
+    x: Math.min(p.x, cropStart.x),
+    y: Math.min(p.y, cropStart.y),
+    w: Math.abs(p.x - cropStart.x),
+    h: Math.abs(p.y - cropStart.y),
+  };
+  drawCropBox();
+});
+['pointerup', 'pointercancel'].forEach((ev) =>
+  vImg.addEventListener(ev, () => {
+    if (!cropStart) return;
+    cropStart = null;
+    $('vCropInsert').disabled = !(cropRect && cropRect.w >= 8 && cropRect.h >= 8);
+  })
+);
+
+// Chèn dòng "[Hình N]": tại cuối dòng đang đặt con trỏ; chưa đặt con trỏ thì ngay trên đáp án đầu tiên
+// (sau đề bài); không có đáp án thì cuối cùng
+function insertFigureLine(text, token) {
+  if (caretSet) {
+    const nl = text.indexOf('\n', vText.selectionEnd);
+    const pos = nl < 0 ? text.length : nl;
+    return `${text.slice(0, pos)}\n${token}${text.slice(pos)}`;
+  }
+  const m = /^[ \t]*[A-H]\s*[.):]/m.exec(text);
+  if (m) return `${text.slice(0, m.index)}${token}\n\n${text.slice(m.index)}`;
+  return text.trim() ? `${text.replace(/\s+$/, '')}\n\n${token}` : token;
+}
+
+$('vCropInsert').addEventListener('click', async () => {
+  const item = viewing;
+  if (!item || !item.file || !cropRect) return;
+  const r = vImg.getBoundingClientRect();
+  const sx = vImg.naturalWidth / r.width;
+  const sy = vImg.naturalHeight / r.height;
+  try {
+    const f = await OCR.crop(item.file, { x: cropRect.x * sx, y: cropRect.y * sy, w: cropRect.w * sx, h: cropRect.h * sy });
+    const token = addFigure(item, f, item.textH);
+    setItemText(item, insertFigureLine(item.text, token));
+    setCropMode(false);
+    refresh();
+    saveSoon();
+    toast(`Đã chèn ${token} vào câu hỏi`);
+  } catch (err) {
+    toast('Không cắt được hình: ' + err.message, { type: 'error' });
+  }
+});
+
+// Danh sách hình của ảnh đang xem: xem nhanh, bỏ hình chèn sai
+function renderViewerFigs() {
+  const box = $('vFigs');
+  box.innerHTML = '';
+  if (!viewing) return;
+  const nums = figureNumbers(viewing.text);
+  box.hidden = nums.length === 0;
+  nums.forEach((n) => {
+    const f = figures.get(n);
+    const chip = document.createElement('span');
+    chip.className = 'fig-chip' + (f ? '' : ' missing');
+    if (f) {
+      const img = new Image();
+      img.src = f.url;
+      img.alt = '';
+      chip.appendChild(img);
+    }
+    chip.append(`Hình ${n}`);
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'fig-del';
+    del.setAttribute('aria-label', `Bỏ hình ${n} khỏi câu hỏi`);
+    del.title = `Bỏ hình ${n} khỏi câu hỏi`;
+    del.innerHTML = icon('x');
+    del.addEventListener('click', () => {
+      const item = viewing;
+      setItemText(item, item.text.replace(new RegExp(`^[ \\t]*\\[Hình ${n}\\][ \\t]*\\n?`, 'm'), '').replace(/\n{3,}/g, '\n\n'));
+      const fig = figures.get(n);
+      if (fig) URL.revokeObjectURL(fig.url);
+      figures.delete(n);
+      refresh();
+      saveSoon();
+    });
+    chip.appendChild(del);
+    box.appendChild(chip);
+  });
+}
 
 // ---------- Lịch sử làm việc (chỉ lưu chữ, trên trình duyệt này) ----------
 let sessionId = null;
@@ -1155,6 +1416,8 @@ async function restoreSession(id) {
   }
   clearItems();
   entry.items.forEach((it) => insertItem({ id: nextId++, name: it.name, file: null, url: null, text: it.text, state: 'done' }));
+  // Lịch sử không lưu hình: đánh số hình mới tiếp sau các số đã có trong chữ để không trùng
+  nextFigure = Math.max(0, ...entry.items.flatMap((it) => figureNumbers(it.text))) + 1;
   const o = entry.opts || {};
   if (o.format) optFormat.value = o.format;
   if (o.number !== undefined) optNumber.checked = o.number;

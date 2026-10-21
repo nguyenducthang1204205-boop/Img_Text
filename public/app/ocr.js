@@ -48,7 +48,23 @@
     const flat = ImagePrep.flatten(ctx.getImageData(0, 0, w, h).data, w, h);
     // Bỏ nút tròn / ô vuông chọn đáp án trước khi đọc (làm hỏng dòng đáp án ngắn như "○ A. 9")
     ImagePrep.eraseMarks(flat, w, h);
-    return { flat, w, h };
+    return { flat, w, h, shrink };
+  }
+
+  // Cắt một vùng (toạ độ điểm ảnh của ảnh gốc) thành ảnh PNG: dùng cho ma trận / hình trong câu hỏi
+  async function crop(file, rect) {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const x = Math.max(0, Math.floor(rect.x));
+    const y = Math.max(0, Math.floor(rect.y));
+    const w = Math.max(1, Math.min(bmp.width - x, Math.ceil(rect.w)));
+    const h = Math.max(1, Math.min(bmp.height - y, Math.ceil(rect.h)));
+    const [canvas, ctx] = canvasOf(w, h);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bmp, x, y, w, h, 0, 0, w, h);
+    bmp.close();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    return { blob, w, h };
   }
 
   // Phóng to bằng Lanczos3 tự tính (giống nhau trên mọi trình duyệt), tăng tương phản, vẽ ra canvas
@@ -82,13 +98,37 @@
     scale = Math.min(scale, Math.sqrt(MAX_PIXELS / (img.w * img.h)));
     const data =
       scale >= MIN_RESCALE ? (await worker.recognize(renderCanvas(img, scale), {}, { text: true, blocks: true })).data : first;
-    // Dựng lại văn bản theo bố cục (tách cột, bỏ dòng rác); không dựng được thì dùng văn bản gốc
-    const text = Layout.toText(data.blocks) || data.text;
-    return FixText.fixMergedSyllables(text).trim();
+    // Dựng lại văn bản theo bố cục (tách cột, bỏ dòng rác); không dựng được thì dùng văn bản gốc.
+    // Ma trận / công thức nhiều dòng thành dòng "⟦k⟧" kèm vùng ảnh để cắt.
+    const regions = [];
+    const text = Layout.toText(data.blocks, regions) || data.text;
+    // Toạ độ ảnh đưa vào Tesseract → toạ độ ảnh đã làm phẳng → toạ độ ảnh gốc
+    const used = scale >= MIN_RESCALE ? scale : 1;
+    const k = 1 / (used * img.shrink);
+    const figures = [];
+    for (const r of regions) {
+      const f = (v) => v / used;
+      const box = ImagePrep.growBox(img.flat, img.w, img.h, { x0: f(r.x0), y0: f(r.y0), x1: f(r.x1), y1: f(r.y1) }, f(r.wordH) * 1.5);
+      const s = 1 / img.shrink;
+      figures.push(await crop(file, { x: box.x0 * s, y: box.y0 * s, w: (box.x1 - box.x0) * s, h: (box.y1 - box.y0) * s }));
+    }
+    const textH = regions.length ? regions[0].wordH * k : medianHeight(data) * k;
+    // Trả về { text, figures: [{ blob, w, h }], textH: chiều cao chữ (điểm ảnh ảnh gốc) }
+    return { text: FixText.fixMergedSyllables(text).trim(), figures, textH };
+  }
+
+  // Chiều cao chữ trung vị của các từ đọc được (để chọn cỡ hình khi chèn vào file Word)
+  function medianHeight(data) {
+    const hs = (data.blocks || [])
+      .flatMap((b) => b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)))
+      .map((w) => w.bbox.y1 - w.bbox.y0)
+      .sort((a, b) => a - b);
+    return hs.length ? hs[hs.length >> 1] : 0;
   }
 
   root.OCR = {
     recognize,
+    crop,
     preload: () => getWorker(),
     setProgressListener: (fn) => (onProgress = fn),
   };

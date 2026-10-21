@@ -78,6 +78,13 @@ The text per image appears in an editable textarea. Then `app.js` calls `Questio
 Other browser-only features in `app.js`:
 
 - **Trộn đề:** `shuffle.js` (UMD, testable in Node) reorders the questions. It reorders the options only when the last lines of a question are `A.`, `B.`, … in sequence. The .docx has one section per version, plus an optional mapping table.
+- **Hình (figures):** matrices and multi-line formulas are inserted as cropped images.
+  - **Detection:** `Layout.toText(blocks, figures)` marks a band whose lines are all `isMathLine` (no 2+ letter word; has a digit or math symbol; not an option, pager or clock) and that has at least 2 lines. It also marks a run of at least 2 such lines inside one column. Each marked region becomes a line `⟦k⟧`.
+  - **Cropping:** `ocr.js` grows each box sideways over ink with `ImagePrep.growBox`, which catches the `I =` labels and brackets. It then crops from the original file with `OCR.crop` and returns `{ text, figures, textH }`.
+  - **Placeholders:** `app.js` replaces `⟦k⟧` with `[Hình N]` and keeps the PNGs in the in-memory `figures` map. `questions.js` treats `FIGURE_RE` lines as part of the current question and ignores them for dedupe.
+  - **Rendering:** the preview and `paragraphsOf` render those lines as images. Call `loadFigureData` first, because docx `ImageRun` needs bytes.
+  - **Manual crop:** "Cắt hình" in the viewer uses the same `OCR.crop` and `addFigure`.
+  - **History:** figures are never saved, so restored placeholders are shown as missing and skipped on export.
 - **Lịch sử:** `sessions.js` keeps up to 30 sessions per user in `localStorage` (`dt-history:<username>`). It stores text only, never images. Restored items have `file: null`, so rotate and re-OCR are disabled for them. Don't name a global `History`, because that shadows the browser's built-in.
 - Also in `app.js`:
   - reordering (drag the grip, or use the up/down buttons)

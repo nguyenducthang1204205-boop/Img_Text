@@ -31,8 +31,23 @@
     return s.length ? s[s.length >> 1] : 0;
   }
 
+  // Dòng công thức / ma trận: không có từ nào (từ 2 chữ cái trở lên), có số hoặc ký hiệu toán học.
+  // Không tính dòng đáp án ("A. 9"), số trang ("10/15") và giờ ("12:09").
+  function isMathLine(t) {
+    return (
+      !/\p{L}{2,}/u.test(t) &&
+      /[\d=+\-−×÷^√∑∫]/u.test(t) &&
+      !/^\s*[A-Ha-h]\s*[.):,]/u.test(t) &&
+      !/^\s*\d{1,4}\s*\/\s*\d{1,4}\s*$/.test(t) &&
+      !/^\s*\d{1,2}:\d{2}/.test(t)
+    );
+  }
+
   // blocks: data.blocks của Tesseract.js. Trả về văn bản; đoạn/hàng cách nhau bằng dòng trống.
-  function toText(blocks) {
+  // figures (không bắt buộc): mảng nhận các vùng ma trận / công thức nhiều dòng. Mỗi vùng được
+  // thay bằng một dòng "⟦k⟧" trong văn bản (k là vị trí trong mảng) để cắt ảnh chèn vào file Word.
+  // Mỗi vùng: { x0, y0, x1, y1, wordH } theo toạ độ của ảnh đưa vào Tesseract.
+  function toText(blocks, figures) {
     const lines = (blocks || [])
       .flatMap((b) => b.paragraphs.flatMap((p) => p.lines))
       .filter((l) => l.confidence >= MIN_LINE_CONFIDENCE && l.words.length);
@@ -91,12 +106,33 @@
       bottom = Math.max(bottom, s.y1);
     }
 
+    const bandBox = bands.map((band) => ({
+      y0: Math.min(...band.map((s) => s.y0)),
+      y1: Math.max(...band.map((s) => s.y1)),
+    }));
+    // Vùng hình: bao quanh các dòng, nới rộng để lấy cả ngoặc ma trận và nhãn "I =" (thường không
+    // đọc được thành chữ), nhưng không lấn sang hàng chữ phía trên / dưới
+    const figureToken = (lines, b) => {
+      const padX = 1.5 * wordH; // ocr.js còn nới tiếp theo nội dung (nhãn "I =", ngoặc)
+      const padY = 0.7 * wordH;
+      const above = b > 0 ? bandBox[b - 1].y1 + 2 : 0;
+      const below = b < bands.length - 1 ? bandBox[b + 1].y0 - 2 : Infinity;
+      figures.push({
+        x0: Math.max(0, Math.min(...lines.map((l) => l.x0)) - padX),
+        x1: Math.max(...lines.map((l) => l.x1)) + padX,
+        y0: Math.max(above, Math.min(...lines.map((l) => l.y0)) - padY),
+        y1: Math.min(below, Math.max(...lines.map((l) => l.y1)) + padY),
+        wordH,
+      });
+      return `⟦${figures.length - 1}⟧`;
+    };
+
     // 4. Trong mỗi hàng: đọc từng cột từ trên xuống; các đoạn cùng dòng trong một cột ghép lại;
     //    dòng bắt đầu bằng chữ thường là phần xuống hàng của dòng trên thì nối vào
-    const out = bands.map((band) => {
+    const out = bands.map((band, b) => {
       const cols = [];
       for (const s of band) (cols[colOf(s)] = cols[colOf(s)] || []).push(s);
-      const result = [];
+      const colLines = [];
       for (const col of cols.filter(Boolean)) {
         const rows = [];
         for (const s of col.sort((a, b) => a.y0 - b.y0)) {
@@ -109,25 +145,56 @@
             rows.push({ y0: s.y0, y1: s.y1, segs: [s] });
           }
         }
-        const texts = rows.map((r) =>
-          r.segs
-            .sort((a, b) => a.x0 - b.x0)
-            .map((s) => s.words.join(' '))
-            .join(' ')
-        );
+        const texts = rows.map((r) => {
+          const segs = r.segs.sort((a, b) => a.x0 - b.x0);
+          return {
+            t: segs.map((s) => s.words.join(' ')).join(' '),
+            x0: Math.min(...segs.map((s) => s.x0)),
+            x1: Math.max(...segs.map((s) => s.x1)),
+            y0: r.y0,
+            y1: r.y1,
+          };
+        });
         const merged = [];
-        for (const t of texts) {
+        for (const l of texts) {
           const prev = merged[merged.length - 1];
           const continues =
             prev !== undefined &&
-            !/[?:]$/.test(prev) &&
-            /^\p{Ll}/u.test(t) &&
-            !/^[a-h][.)]?\s/u.test(t) &&
-            !TRUE_FALSE_ROW.test(t); // hàng nút "sai @ Đúng" không phải phần xuống hàng
-          if (continues) merged[merged.length - 1] = `${prev} ${t}`;
-          else merged.push(t);
+            !/[?:]$/.test(prev.t) &&
+            /^\p{Ll}/u.test(l.t) &&
+            !/^[a-h][.)]?\s/u.test(l.t) &&
+            !TRUE_FALSE_ROW.test(l.t); // hàng nút "sai @ Đúng" không phải phần xuống hàng
+          if (continues) {
+            prev.t = `${prev.t} ${l.t}`;
+            prev.x0 = Math.min(prev.x0, l.x0);
+            prev.x1 = Math.max(prev.x1, l.x1);
+            prev.y1 = Math.max(prev.y1, l.y1);
+          } else merged.push({ ...l });
         }
-        result.push(...merged);
+        colLines.push(merged);
+      }
+
+      const all = colLines.flat();
+      if (!figures) return all.map((l) => l.t).join('\n');
+      // Cả hàng là ma trận / công thức nhiều dòng (kể cả hai ma trận cạnh nhau): một hình
+      if (all.length >= 2 && all.every((l) => isMathLine(l.t))) return figureToken(all, b);
+      // Hàng lẫn chữ: từ 2 dòng công thức liền nhau trong cùng một cột trở lên thì thành hình
+      const result = [];
+      for (const lines of colLines) {
+        let run = [];
+        const flush = () => {
+          if (run.length >= 2) result.push(figureToken(run, b));
+          else result.push(...run.map((l) => l.t));
+          run = [];
+        };
+        for (const l of lines) {
+          if (isMathLine(l.t)) run.push(l);
+          else {
+            flush();
+            result.push(l.t);
+          }
+        }
+        flush();
       }
       return result.join('\n');
     });
