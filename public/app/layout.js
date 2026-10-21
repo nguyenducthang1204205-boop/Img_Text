@@ -49,7 +49,8 @@
   // Tesseract. Vùng có sẵn khi gọi (ma trận tìm theo cặp ngoặc) được dùng trước: chữ đọc được bên trong
   // bị bỏ, thay bằng "⟦k⟧" (k là vị trí trong mảng) đúng chỗ đó, nên "A." cùng hàng thành "A. ⟦k⟧".
   // Hàm còn tự thêm vùng cho công thức nhiều dòng không có ngoặc.
-  function toText(blocks, figures) {
+  // marks (không bắt buộc): vị trí các nút chọn đã xoá khỏi ảnh, cùng hệ toạ độ.
+  function toText(blocks, figures, marks = []) {
     const presets = figures ? figures.slice() : [];
     const lines = (blocks || [])
       .flatMap((b) => b.paragraphs.flatMap((p) => p.lines))
@@ -59,6 +60,45 @@
     const wordH = median(lines.flatMap((l) => l.words.map((w) => w.bbox.y1 - w.bbox.y0))) || 20;
     const width = Math.max(1, ...lines.map((l) => l.bbox.x1));
     presets.forEach((f) => (f.wordH = f.wordH || wordH));
+    // Nhãn đáp án đứng trước ma trận ("C. (…)"). Khung nới sang trái để lấy nhãn ma trận ("S0 =")
+    // có thể lấy luôn "C.", và OCR hay đọc dính nhãn với ngoặc ("c|-1") hoặc đọc sai ("D." → "5").
+    // Từ đầu tiên của hàng, bắt đầu bên trái ngoặc mở (bx0):
+    //   - bắt đầu bằng chữ cái A–H rồi tới dấu / ngoặc ("C.", "c|-1") và không phải "A =" → nhãn đáp án;
+    //   - chỉ 1–2 ký tự không phải chữ ("5") → nhãn đọc sai, đoán theo đáp án trước ("⟨?⟩", xử lý cuối hàm).
+    // Khung cắt thu lại về mép ngoặc để hình không chứa nhãn; nhãn thành chữ đứng trước hình.
+    const labelWords = new Set();
+    const labelSegs = [];
+    for (const f of presets) {
+      if (f.bx0 === undefined) continue;
+      for (const l of lines) {
+        const words = [...l.words].sort((a, b) => a.bbox.x0 - b.bbox.x0);
+        const i = words.findIndex((w) => {
+          const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+          return cy >= f.y0 && cy <= f.y1 && w.bbox.x0 < f.bx0 && f.bx0 - w.bbox.x1 < 8 * wordH;
+        });
+        // Phải là từ đầu tiên của dòng (trước nó chỉ có thể là vụn của nút chọn)
+        if (i < 0 || words.slice(0, i).some((w) => /\p{L}{2}|\d/u.test(w.text))) continue;
+        const t = words[i].text.trim();
+        const next = (words[i + 1] && words[i + 1].text.trim()) || '';
+        const m = /^\(?([A-Ha-h])(?:[.):,|]|$)/u.exec(t);
+        let label = null;
+        if (m && !t.includes('=') && !next.startsWith('=')) label = `${m[1]}.`;
+        else if (!/\p{L}/u.test(t) && [...t].length <= 2 && !t.includes('=')) label = '⟨?⟩';
+        if (!label) continue;
+        f.labeled = true;
+        const w = words[i];
+        labelWords.add(w);
+        labelSegs.push({ words: [label], x0: w.bbox.x0, x1: Math.min(w.bbox.x1, f.bx0), y0: w.bbox.y0, y1: w.bbox.y1, first: true });
+        f.x0 = Math.max(f.x0, f.bx0 - 0.3 * wordH);
+      }
+      // Không đọc được nhãn nhưng cùng hàng có nút chọn ở bên trái: chắc chắn là một đáp án
+      const mark = !f.labeled && marks.find((k) => (k.y0 + k.y1) / 2 >= f.y0 && (k.y0 + k.y1) / 2 <= f.y1 && k.x1 < f.bx0);
+      if (mark) {
+        const cy = (mark.y0 + mark.y1) / 2;
+        labelSegs.push({ words: ['⟨?⟩'], x0: mark.x1 + 1, x1: mark.x1 + wordH, y0: cy - wordH / 2, y1: cy + wordH / 2, first: true });
+        f.x0 = Math.max(f.x0, f.bx0 - 0.3 * wordH);
+      }
+    }
     const inPreset = (b) => {
       const cx = (b.x0 + b.x1) / 2;
       const cy = (b.y0 + b.y1) / 2;
@@ -67,11 +107,12 @@
 
     // 1. Cắt mỗi dòng thành các đoạn tại khoảng trống lớn
     const segs = presets.map((f, k) => ({ words: [`⟦${k}⟧`], x0: f.x0, x1: f.x1, y0: f.y0, y1: f.y1, first: true }));
+    segs.push(...labelSegs);
     for (const line of lines) {
       let cur = null;
       for (const w of [...line.words].sort((a, b) => a.bbox.x0 - b.bbox.x0)) {
         const text = w.text.trim();
-        if (!text || isJunkWord(w) || inPreset(w.bbox)) continue;
+        if (!text || isJunkWord(w) || inPreset(w.bbox) || labelWords.has(w)) continue;
         if (!cur || w.bbox.x0 - cur.x1 > COLUMN_GAP * wordH) {
           cur = { words: [], x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, first: !cur };
           segs.push(cur);
@@ -155,7 +196,15 @@
           }
         }
         const texts = rows.map((r) => {
-          const segs = r.segs.sort((a, b) => a.x0 - b.x0);
+          let segs = r.segs.sort((a, b) => a.x0 - b.x0);
+          // Hàng có hình: chỉ giữ hình và nhãn đáp án đứng trước nó; chữ vụn khác cùng hàng (đường kẻ
+          // nét đứt đọc thành "ee:", số hàng ma trận lọt ra ngoài khung…) bỏ đi
+          const fig = segs.find((s) => s.words[0].startsWith('⟦'));
+          if (fig) {
+            segs = segs.filter(
+              (s) => s === fig || (s.x1 <= fig.x0 + wordH && /^(?:⟨\?⟩|\(?[A-Ha-h][.):,]?)$/u.test(s.words.join(' ')))
+            );
+          }
           return {
             t: segs.map((s) => s.words.join(' ')).join(' '),
             x0: Math.min(...segs.map((s) => s.x0)),
@@ -169,6 +218,7 @@
           const prev = merged[merged.length - 1];
           const continues =
             prev !== undefined &&
+            !prev.t.includes('⟦') && // dòng hình không bao giờ "xuống hàng"
             !/[?:]$/.test(prev.t) &&
             /^\p{Ll}/u.test(l.t) &&
             !/^[a-h][.)]?\s/u.test(l.t) &&
@@ -207,7 +257,21 @@
       }
       return result.join('\n');
     });
-    return out.join('\n\n');
+    // Nhãn đáp án đọc sai trước ma trận ("⟨?⟩ ⟦k⟧"): là chữ cái tiếp theo sau đáp án gần nhất bên trên;
+    // chưa có đáp án nào thì bỏ nhãn
+    let lastLetter = null;
+    return out
+      .join('\n\n')
+      .split('\n')
+      .map((line) => {
+        const m = /^\s*([A-Ha-h])[.):,]/u.exec(line);
+        if (m) lastLetter = m[1].toUpperCase();
+        if (!line.startsWith('⟨?⟩')) return line;
+        if (!lastLetter || lastLetter === 'H') return line.replace(/^⟨\?⟩\s*/, '');
+        lastLetter = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
+        return line.replace('⟨?⟩', `${lastLetter}.`);
+      })
+      .join('\n');
   }
 
   const api = { toText };

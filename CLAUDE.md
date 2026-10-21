@@ -45,7 +45,9 @@ D1 schema: `migrations/0001_init.sql` (`users`, `sessions`).
 Pipeline for each image (`ocr.js` → `OCR.recognize`):
 
 1. `ImagePrep.flatten`: convert to gray, divide by a sliding-max/blur background estimate. This removes moiré stripes from photos of laptop screens and uneven backgrounds.
-   Then `ImagePrep.eraseMarks` whitens radio buttons and checkboxes. These are hollow, near-square connected components, at least 2× the median glyph height, with fill ratio ≤ 0.35, that come first on their row. Without this step, Tesseract garbles short options such as "○ A. 9".
+   Then `ImagePrep.eraseMarks` whitens radio buttons and checkboxes and returns their boxes. These are hollow, near-square connected components, at least 1.6× the median glyph height, with fill ratio ≤ 0.35, that come first on their row. Without this step, Tesseract garbles short options such as "○ A. 9".
+   - Keep the ratio at 1.6. Radios are about 2.4× on original screenshots but only about 1.9× after Zalo/Messenger downscaling (≈1280 px tall). A capital "O" is about 1.4×.
+   - Matrices are searched after the marks are erased, so growing a box leftwards never reaches a radio.
 2. Pass 1 at 1×. `ImagePrep.chooseScale` measures line heights and targets about 48px, up to 3× and at most 16 megapixels. Pass 2 is rendered with JS Lanczos3 only if the scale is ≥ 1.3. Browser canvas upscaling gave worse OCR, so keep the custom resize.
 3. `Layout.toText(data.blocks)` rebuilds the text from word boxes:
    - drops lines with confidence < 45 and junk words, but keeps coordinate tokens such as `I'(2,2)`, which Tesseract scores very low even when it reads them correctly
@@ -83,6 +85,12 @@ Other browser-only features in `app.js`:
     - Brackets are tall (≥ 2.5× text height), curved and thin components. An opening one has its middle ink near the left edge.
     - Each `(` is paired with the nearest `)` to its right of similar height. Each box is grown sideways with `growBox` to take labels such as `S0 =`. Boxes on the same row are merged.
     - Shape-based detection was needed because the rows of option matrices are spaced wider than `BAND_GAP`, and labels sit in the middle row. Both broke text-based detection.
+  - **Option labels next to matrices:** Layout looks at the first word of the row left of the bracket (`bx0`).
+    - It treats that word as the option label when it is `C.` or `c|-1` (glued to the bracket), but not `A =`.
+    - It treats a 1–2 char non-letter word, such as `5` misread for `D.`, as `⟨?⟩`.
+    - When no word is found but an erased radio sits on that row, it also uses `⟨?⟩`.
+    - The crop is shrunk back to the bracket. A final pass turns `⟨?⟩` into the letter after the previous option.
+    - In a row containing a figure, only the figure and its option label are kept, and a figure line never absorbs a following "wrapped" line.
   - **Detection, by text (fallback):** `Layout.toText(blocks, figures)` takes the preset regions first. It drops the OCR words inside them and inserts a `⟦k⟧` pseudo-segment, so an option letter on the same row becomes `A. ⟦k⟧`. It then still marks multi-line `isMathLine` runs (no 2+ letter word; has a digit or math symbol; not an option, pager or clock) without brackets.
   - **Cropping:** `ocr.js` grows the text-detected boxes with `growBox` too, crops from the original file with `OCR.crop`, and returns `{ text, figures, textH }`.
   - **Placeholders:** `app.js` replaces `⟦k⟧` with `[Hình N]` and keeps the PNGs in the in-memory `figures` map. `questions.js` treats `FIGURE_RE` lines as part of the current question and ignores them for dedupe.

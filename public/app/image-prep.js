@@ -140,7 +140,9 @@
     if (!textH) return [];
     return comps.filter((c) => {
       const d = Math.max(c.cw, c.ch);
-      if (d < 2 * textH || d > 5 * textH) return false;
+      // Nút chọn cao ~2,4 lần chữ thường ở ảnh gốc, còn ~1,9 lần khi ảnh bị thu nhỏ (gửi qua Zalo,
+      // Messenger…); chữ "O" hoa thật chỉ ~1,4 lần
+      if (d < 1.6 * textH || d > 5 * textH) return false;
       if (Math.min(c.cw, c.ch) / d < 0.85) return false; // gần vuông/tròn
       if (c.n / (c.cw * c.ch) > 0.35) return false; // nét mảnh, không phải khối đặc
       // Rỗng ở giữa: vùng 40% giữa khung không có điểm nào của chính khối này
@@ -153,7 +155,8 @@
     });
   }
 
-  // Tô trắng các nút chọn tìm được (sửa trực tiếp trên ảnh đã làm phẳng). Trả về số nút đã xoá.
+  // Tô trắng các nút chọn tìm được (sửa trực tiếp trên ảnh đã làm phẳng). Trả về các nút đã xoá
+  // (vị trí của chúng cho biết hàng nào là một đáp án).
   function eraseMarks(flat, w, h, cc) {
     const marks = findMarks(flat, w, h, cc);
     for (const m of marks) {
@@ -162,7 +165,7 @@
         flat.fill(255, y * w + Math.max(0, m.x0 - pad), y * w + Math.min(w - 1, m.x1 + pad) + 1);
       }
     }
-    return marks.length;
+    return marks;
   }
 
   // ---------- Tìm ma trận theo cặp ngoặc lớn ----------
@@ -171,7 +174,8 @@
   // ("I = (…)   Sy = (…)") gộp thành một hình. Cuối cùng nới sang hai bên để lấy nhãn "S0 =".
   // Nhận theo hình dạng nên không phụ thuộc OCR đọc đúng các số hay khoảng cách giữa các hàng.
   // Ngoặc của ảnh công thức bị thu nhỏ thường có nét giữa rất mờ (xám ~180) nên tách khối ở mức
-  // mực nhạt (200) để ngoặc vẫn liền một khối. Trả về [{ x0, y0, x1, y1 }] theo toạ độ ảnh flat.
+  // mực nhạt (200) để ngoặc vẫn liền một khối. Trả về [{ x0, y0, x1, y1, bx0 }] theo toạ độ ảnh flat
+  // (bx0 = mép ngoặc mở đầu tiên).
   const BRACKET_INK = 200;
   function findMatrices(flat, w, h, cc = components(flat, w, h, BRACKET_INK)) {
     const { label, comps, textH } = cc;
@@ -213,14 +217,15 @@
       }
       if (!best) continue;
       used.add(best);
-      boxes.push({ x0: L.x0, x1: best.x1, y0: Math.min(L.y0, best.y0), y1: Math.max(L.y1, best.y1) });
+      // bx0: mép ngoặc mở (phần nới sang trái chỉ để lấy nhãn "S0 =")
+      boxes.push({ x0: L.x0, bx0: L.x0, x1: best.x1, y0: Math.min(L.y0, best.y0), y1: Math.max(L.y1, best.y1) });
     }
 
     // Nới sang hai bên để lấy nhãn ("S0 =", "I ="), rồi gộp các ma trận cùng hàng đứng gần nhau
     const pad = Math.round(textH * 0.3);
     boxes = boxes.map((b) => {
       const g = growBox(flat, w, h, b, 2 * textH);
-      return { x0: g.x0, x1: g.x1, y0: Math.max(0, b.y0 - pad), y1: Math.min(h - 1, b.y1 + pad) };
+      return { x0: g.x0, bx0: b.bx0, x1: g.x1, y0: Math.max(0, b.y0 - pad), y1: Math.min(h - 1, b.y1 + pad) };
     });
     boxes.sort((a, b) => a.y0 - b.y0 || a.x0 - b.x0);
     const merged = [];
@@ -233,6 +238,7 @@
       );
       if (m) {
         m.x0 = Math.min(m.x0, b.x0);
+        m.bx0 = Math.min(m.bx0, b.bx0);
         m.x1 = Math.max(m.x1, b.x1);
         m.y0 = Math.min(m.y0, b.y0);
         m.y1 = Math.max(m.y1, b.y1);

@@ -46,11 +46,12 @@
     ctx.drawImage(bmp, 0, 0, w, h);
     bmp.close();
     const flat = ImagePrep.flatten(ctx.getImageData(0, 0, w, h).data, w, h);
-    // Ma trận (cặp ngoặc lớn) ở đề bài và ở đáp án: sẽ được cắt thành hình
-    const matrices = ImagePrep.findMatrices(flat, w, h);
     // Bỏ nút tròn / ô vuông chọn đáp án trước khi đọc (làm hỏng dòng đáp án ngắn như "○ A. 9")
-    ImagePrep.eraseMarks(flat, w, h);
-    return { flat, w, h, shrink, matrices };
+    const marks = ImagePrep.eraseMarks(flat, w, h);
+    // Ma trận (cặp ngoặc lớn) ở đề bài và ở đáp án: sẽ được cắt thành hình.
+    // Tìm sau khi đã xoá nút chọn để khung nới sang trái không lan tới nút chọn
+    const matrices = ImagePrep.findMatrices(flat, w, h);
+    return { flat, w, h, shrink, matrices, marks };
   }
 
   // Cắt một vùng (toạ độ điểm ảnh của ảnh gốc) thành ảnh PNG: dùng cho ma trận / hình trong câu hỏi
@@ -106,8 +107,10 @@
     const used = scale >= MIN_RESCALE ? scale : 1;
     const k = 1 / (used * img.shrink);
     // Ma trận tìm theo cặp ngoặc (toạ độ ảnh đã làm phẳng → ảnh đưa vào Tesseract)
-    const regions = img.matrices.map((m) => ({ x0: m.x0 * used, y0: m.y0 * used, x1: m.x1 * used, y1: m.y1 * used, preset: true }));
-    const text = Layout.toText(data.blocks, regions) || data.text;
+    const regions = img.matrices.map((m) => ({ x0: m.x0 * used, bx0: m.bx0 * used, y0: m.y0 * used, x1: m.x1 * used, y1: m.y1 * used, preset: true }));
+    // Vị trí nút chọn đã xoá: hàng có nút chọn là một đáp án (đoán nhãn khi OCR đọc mất "C.")
+    const marks = img.marks.map((m) => ({ x0: m.x0 * used, y0: m.y0 * used, x1: m.x1 * used, y1: m.y1 * used }));
+    const text = Layout.toText(data.blocks, regions, marks) || data.text;
     const figures = [];
     for (const r of regions) {
       const f = (v) => v / used;
