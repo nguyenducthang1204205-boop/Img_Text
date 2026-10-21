@@ -35,12 +35,12 @@ npm run dev           # mở http://127.0.0.1:8788
      - Ảnh không có số câu (hoặc nhãn số câu bị đọc sai): mỗi câu hỏi kèm các đáp án A/B/C/D bên dưới được tính là một câu.
      - Ảnh không có cả số câu lẫn đáp án: mỗi đoạn văn là một câu.
      - Đáp án bị tràn sang ảnh sau được nối vào câu cuối của ảnh trước.
-   - **Lọc câu hỏi trùng**: bỏ các câu có nội dung giống một câu đã xuất hiện trước đó, kể cả khi số câu khác nhau. Thanh "Độ giống từ" chỉnh mức giống nhau cần thiết: 100% là giống hệt, mặc định 90% để vẫn bắt được câu trùng bị đọc sai vài ký tự. Danh sách câu bị loại hiện bên dưới để kiểm tra.
+   - **Lọc câu hỏi trùng**: bỏ các câu có nội dung giống một câu đã xuất hiện trước đó, kể cả khi số câu khác nhau. Hai câu cùng mẫu nhưng khác số (VD hỏi giá trị I'(2,2) và I'(1,2)) không bị coi là trùng. Thanh "Độ giống từ" chỉnh mức giống nhau cần thiết: 100% là giống hệt, mặc định 90% để vẫn bắt được câu trùng bị đọc sai vài ký tự. Danh sách câu bị loại hiện bên dưới để kiểm tra.
    - **Chỉ giữ câu hỏi và đáp án**: tự bỏ các thông tin thừa trong ảnh chụp màn hình app/web làm bài:
      - thanh trạng thái điện thoại (giờ, pin) và tiêu đề kèm đồng hồ đếm giờ;
      - số trang ("1/15") và các nhãn/nút như "Trả lời:", "Câu hỏi", "Nộp bài";
      - ký tự rác do đọc ma trận, hình vẽ hoặc nhãn màu;
-     - nút tròn / ô vuông chọn đáp án ("O A." → "A.", "8." → "B."), hàng nút "Đúng / Sai", dòng hướng dẫn "Sinh viên chọn 2 phương án đúng nhất";
+     - nút tròn / ô vuông chọn đáp án: được xoá khỏi ảnh trước khi đọc, nhờ vậy đáp án ngắn như "○ A. 9" vẫn đọc đúng ("O A." → "A.", "8." → "B."); hàng nút "Đúng / Sai", dòng hướng dẫn "Sinh viên chọn 2 phương án đúng nhất";
      - đáp án và ý trình bày 2 cột được đọc đúng thứ tự (hết cột trái mới sang cột phải), dòng bị xuống hàng được nối lại.
    - **Câu Đúng/Sai nhiều ý** ("Phát biểu sau đây… Đúng hay Sai?" kèm các ý 1), 2)…): dưới mỗi ý in "Đúng" và "Sai".
    - **Câu kéo thả / ghép nối** ("Hãy kéo thả…", "Ghép nối…"): in từ khoá, dòng dưới là câu trả lời ghép với nó, có gạch đầu dòng "- ".

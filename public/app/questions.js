@@ -319,6 +319,9 @@
     return String(s).normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   }
 
+  // Dãy các số trong câu, theo thứ tự xuất hiện
+  const numbersOf = (norm) => (norm.match(/\d+/g) || []).join(' ');
+
   function bigrams(s) {
     const map = new Map();
     for (let i = 0; i < s.length - 1; i++) {
@@ -368,10 +371,13 @@
 
       for (const q of questions) {
         const norm = normalize(q.body);
+        const nums = numbersOf(norm);
         if (dedupe && norm) {
           let match = null;
           let best = 0;
           for (const k of kept) {
+            // Câu tính toán cùng mẫu chỉ khác số ("I'(2,2)" / "I'(1,2)", đáp án khác nhau): không phải câu trùng
+            if (k.nums !== nums) continue;
             // Chênh lệch độ dài quá lớn thì không thể đạt ngưỡng, bỏ qua cho nhanh
             const ratio = (2 * Math.min(norm.length, k.norm.length)) / (norm.length + k.norm.length);
             if (ratio < threshold) continue;
@@ -389,7 +395,7 @@
           }
         }
         n++;
-        kept.push({ norm, no: n });
+        kept.push({ norm, nums, no: n });
         parts.push(number ? `${format.replace('{n}', n)} ${q.body}` : q.raw);
         last = { parts, i: parts.length - 1 };
         keptRefs.push(last);

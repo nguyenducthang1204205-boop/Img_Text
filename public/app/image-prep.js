@@ -83,6 +83,81 @@
     return gray;
   }
 
+  // ---------- Xoá nút chọn đáp án (vòng tròn / ô vuông rỗng) ----------
+  // Nút tròn "○" trước "A." to hơn chữ và làm Tesseract đọc hỏng cả dòng khi đáp án ngắn
+  // ("○ A. 9" → "(As"). Tìm các khối mực liền nhau dạng vòng/khung rỗng, gần vuông, nét mảnh,
+  // cao gấp đôi chữ thường trở lên, rồi tô trắng cả khung (kể cả chấm/dấu tích bên trong).
+  // Chữ "O", "o", "0" thật nhỏ hơn và nét dày hơn nên được giữ.
+  const INK = 128;
+  function findMarks(flat, w, h) {
+    const label = new Int32Array(w * h);
+    const stack = [];
+    const comps = [];
+    for (let start = 0; start < flat.length; start++) {
+      if (label[start] || flat[start] >= INK) continue;
+      const id = comps.length + 1;
+      stack.push(start);
+      label[start] = id;
+      let x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0;
+      while (stack.length) {
+        const p = stack.pop();
+        const x = p % w;
+        const y = (p - x) / w;
+        n++;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+        // 8 hướng để nét mảnh, chéo của vòng tròn vẫn liền một khối
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= h) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx;
+            if (xx < 0 || xx >= w) continue;
+            const q = yy * w + xx;
+            if (!label[q] && flat[q] < INK) {
+              label[q] = id;
+              stack.push(q);
+            }
+          }
+        }
+      }
+      comps.push({ id, x0, y0, x1, y1, n, cw: x1 - x0 + 1, ch: y1 - y0 + 1 });
+    }
+
+    // Cỡ chữ thường: trung vị chiều cao các khối cỡ chữ (bỏ dấu, chấm, gạch nhỏ)
+    const heights = comps.filter((c) => c.n >= 20 && c.ch >= 8 && c.ch <= h / 20).map((c) => c.ch).sort((a, b) => a - b);
+    const textH = heights.length ? heights[heights.length >> 1] : 0;
+    if (!textH) return [];
+
+    return comps.filter((c) => {
+      const d = Math.max(c.cw, c.ch);
+      if (d < 2 * textH || d > 5 * textH) return false;
+      if (Math.min(c.cw, c.ch) / d < 0.85) return false; // gần vuông/tròn
+      if (c.n / (c.cw * c.ch) > 0.35) return false; // nét mảnh, không phải khối đặc
+      // Rỗng ở giữa: vùng 40% giữa khung không có điểm nào của chính khối này
+      const ix0 = c.x0 + Math.round(c.cw * 0.3), ix1 = c.x1 - Math.round(c.cw * 0.3);
+      const iy0 = c.y0 + Math.round(c.ch * 0.3), iy1 = c.y1 - Math.round(c.ch * 0.3);
+      for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) if (label[y * w + x] === c.id) return false;
+      // Phải là thứ đứng đầu một hàng chữ: bên trái cùng hàng không có khối cỡ chữ nào
+      const cy = (c.y0 + c.y1) / 2;
+      return !comps.some((o) => o !== c && o.x1 < c.x0 && o.ch >= textH * 0.6 && o.n >= 20 && o.y0 < cy && o.y1 > cy);
+    });
+  }
+
+  // Tô trắng các nút chọn tìm được (sửa trực tiếp trên ảnh đã làm phẳng). Trả về số nút đã xoá.
+  function eraseMarks(flat, w, h) {
+    const marks = findMarks(flat, w, h);
+    for (const m of marks) {
+      const pad = 2;
+      for (let y = Math.max(0, m.y0 - pad); y <= Math.min(h - 1, m.y1 + pad); y++) {
+        flat.fill(255, y * w + Math.max(0, m.x0 - pad), y * w + Math.min(w - 1, m.x1 + pad) + 1);
+      }
+    }
+    return marks.length;
+  }
+
   // ---------- Phóng to / thu nhỏ bằng Lanczos3 ----------
   function lanczos(x) {
     if (x === 0) return 1;
@@ -178,7 +253,7 @@
     return Math.min(MAX_SCALE, Math.max(1, TARGET_LINE_HEIGHT / low));
   }
 
-  const api = { flatten, render, chooseScale };
+  const api = { flatten, render, chooseScale, eraseMarks, findMarks };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ImagePrep = api;
 })(typeof window !== 'undefined' ? window : globalThis);

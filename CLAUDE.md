@@ -45,14 +45,15 @@ D1 schema: `migrations/0001_init.sql` (`users`, `sessions`).
 Pipeline for each image (`ocr.js` → `OCR.recognize`):
 
 1. `ImagePrep.flatten`: convert to gray, divide by a sliding-max/blur background estimate. This removes moiré stripes from photos of laptop screens and uneven backgrounds.
+   Then `ImagePrep.eraseMarks` whitens radio buttons and checkboxes. These are hollow, near-square connected components, at least 2× the median glyph height, with fill ratio ≤ 0.35, that come first on their row. Without this step, Tesseract garbles short options such as "○ A. 9".
 2. Pass 1 at 1×. `ImagePrep.chooseScale` measures line heights and targets about 48px, up to 3× and at most 16 megapixels. Pass 2 is rendered with JS Lanczos3 only if the scale is ≥ 1.3. Browser canvas upscaling gave worse OCR, so keep the custom resize.
 3. `Layout.toText(data.blocks)` rebuilds the text from word boxes:
-   - drops lines with confidence < 45 and junk words
+   - drops lines with confidence < 45 and junk words, but keeps coordinate tokens such as `I'(2,2)`, which Tesseract scores very low even when it reads them correctly
    - cuts segments at large gaps
    - detects columns (each column at least 20% of the width; this keeps the gap after a radio button from being treated as a column break)
    - groups segments into bands and reads the left column, then the right
    - joins wrapped lines.
-4. `FixText.fixMergedSyllables` fixes common Vietnamese OCR errors: syllables glued together, `ä`→`ă`, `qu yết`→`quyết`.
+4. `FixText.fixMergedSyllables` fixes common Vietnamese OCR errors: syllables glued together, `ä`→`ă`, `qu yết`→`quyết`, a `|` between two lowercase words → `I`, and `!(1,2)` → `I'(1,2)`.
 
 The text per image appears in an editable textarea. Then `app.js` calls `Questions.processItems(items, opts)` over all images. `questions.js` runs these stages:
 
@@ -68,7 +69,7 @@ The text per image appears in an editable textarea. Then `app.js` calls `Questio
   - drag-drop/matching questions: the keyword, then `- answer` on the next line.
 - **`processItems`:**
   - renumbers questions with the chosen format (`Câu {n}:` …)
-  - removes duplicates by Dice similarity on bigrams (threshold slider, default 0.9)
+  - removes duplicates by Dice similarity on bigrams (threshold slider, default 0.9). Two questions whose sequences of numbers differ are never duplicates, because computation questions from the same template differ only in their numbers.
   - appends overflow text to the previous image's question
   - returns `questions` (null when both numbering and dedupe are off).
 

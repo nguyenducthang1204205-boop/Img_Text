@@ -45,7 +45,10 @@
     const [, ctx] = canvasOf(w, h);
     ctx.drawImage(bmp, 0, 0, w, h);
     bmp.close();
-    return { flat: ImagePrep.flatten(ctx.getImageData(0, 0, w, h).data, w, h), w, h };
+    const flat = ImagePrep.flatten(ctx.getImageData(0, 0, w, h).data, w, h);
+    // Bỏ nút tròn / ô vuông chọn đáp án trước khi đọc (làm hỏng dòng đáp án ngắn như "○ A. 9")
+    ImagePrep.eraseMarks(flat, w, h);
+    return { flat, w, h };
   }
 
   // Phóng to bằng Lanczos3 tự tính (giống nhau trên mọi trình duyệt), tăng tương phản, vẽ ra canvas

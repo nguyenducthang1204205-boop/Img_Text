@@ -59,8 +59,14 @@
   const joinBrokenQu = (text) =>
     text.replace(/(?<!\p{L})([Qq]u) (?=[aăâeêioôơuưyáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ])/gu, '$1');
 
+  // Chữ "I" (tên ảnh, ma trận) hay bị đọc thành ký hiệu:
+  // "ảnh | theo" → "ảnh I theo" ("|" kẹp giữa hai chữ thường không phải vạch ngăn cột),
+  // "!(1,2)" → "I'(1,2)" ("I′" dính dấu phẩy trên thành "!" ngay trước toạ độ)
+  const fixLetterI = (text) =>
+    text.replace(/(?<=\p{Ll}) \| (?=\p{Ll})/gu, ' I ').replace(/(?<![\p{L}\p{N}])!(?=\(\s*-?\d)/gu, "I'");
+
   function fixMergedSyllables(text) {
-    return joinBrokenQu(String(text).normalize('NFC')).replace(/\p{L}+/gu, (word) => splitWord(fixLetters(word)));
+    return fixLetterI(joinBrokenQu(String(text).normalize('NFC'))).replace(/\p{L}+/gu, (word) => splitWord(fixLetters(word)));
   }
 
   const api = { fixMergedSyllables };

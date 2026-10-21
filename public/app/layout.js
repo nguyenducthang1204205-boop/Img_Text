@@ -14,8 +14,11 @@
   // Chữ rác lẫn trong dòng chữ thật (sọc vân, icon "X" đè lên chữ): độ tin cậy thấp.
   // Giữ lại chữ thật bị đọc dính/méo: dài từ 5 ký tự và có dấu tiếng Việt ("Trong/các", "Kỹnănggiao")
   const VN_MARK = /[̀-ͯ]|đ/iu;
+  // Toạ độ / chỉ số như "I'(2,2)", "(1,2)": Tesseract hay đọc đúng nhưng chấm độ tin cậy rất thấp
+  const COORD_RE = /\(\s*-?\d{1,3}\s*[,;]\s*-?\d{1,3}\s*\)/;
   function isJunkWord(w) {
     const t = w.text.trim();
+    if (COORD_RE.test(t)) return false;
     if (w.confidence < 60 && [...t].length <= 2) return true;
     if (w.confidence >= 45) return false;
     return !([...t].length >= 5 && VN_MARK.test(t.normalize('NFD')));
